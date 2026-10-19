@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Трынька</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700&family=Golos+Text:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--ivory:#f3ecd9;--brass:#d4ac4e;--wine:#8c2a2a;--ink:#1c1a17;--ok:#7bd957;
+--ui:'Golos Text',system-ui,sans-serif;--serif:'Alegreya',Georgia,serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(100% 70% at 50% 40%,#16201d,#0b1110);color:var(--ivory);font-family:var(--ui);
+padding:env(safe-area-inset-top,0) 14px env(safe-area-inset-bottom,0);overflow-y:auto}
+#app{position:relative;padding-top:42px!important;min-height:100%;display:flex;flex-direction:column;gap:10px;padding:8px 0 12px;max-width:460px;margin:0 auto}
+.tb{position:relative;flex:1;min-height:520px;margin:6px 4px 0;border-radius:50%/24%;border:10px solid #15110f;
+background:radial-gradient(70% 55% at 50% 45%,#23785f,#104033);box-shadow:inset 0 0 40px rgba(0,0,0,.45),0 8px 30px rgba(0,0,0,.5)}
+.tb::after{content:"";position:absolute;inset:7% 9%;border:1px solid rgba(255,255,255,.09);border-radius:50%/24%;pointer-events:none}
+.deck{position:absolute;top:3%;left:50%;transform:translateX(-50%)}
+.deck .c{box-shadow:2px 2px 0 #5b1c1c,4px 4px 0 #3f1313}
+.seat{position:absolute;top:5%;width:106px;display:flex;flex-direction:column;align-items:center;transition:opacity .2s}
+.seat.l{left:-16px}.seat.r{right:-16px}.dim{opacity:.55}
+.av{position:relative;width:54px;height:54px;border-radius:50%;background:#2a3532;border:2px solid #3b4a45;font-size:28px;display:flex;align-items:center;justify-content:center}
+.turn .av{border-color:var(--ok);box-shadow:0 0 0 3px rgba(123,217,87,.35)}
+.bd{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font:600 11px var(--ui);padding:2px 7px;border-radius:6px;background:#1b1512;border:1px solid #6d5a2f;white-space:nowrap;font-style:normal}
+.bd.f{color:#ff5a4d;border-color:#ff5a4d}
+.cs{display:flex;margin-top:-4px;height:52px}.cs .c+.c{margin-left:-14px}
+.np{position:relative;min-width:96px;margin-top:-10px;padding:5px 10px 7px;border-radius:10px;background:#17110f;border:1px solid #2c2420;text-align:center;line-height:1.2}
+.np b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px}
+.np span{font:700 17px var(--serif);color:var(--brass)}
+.bar{position:absolute;left:6px;right:6px;bottom:2px;height:3px;border-radius:2px;background:var(--ok);display:block}
+.bar.bot{transform-origin:left}
+@media(prefers-reduced-motion:no-preference){.bar.bot{animation:tm 1.1s linear forwards}@keyframes tm{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.c{animation:d .25s ease-out}@keyframes d{from{opacity:0;margin-top:-8px}}}
+.bet{display:flex;align-items:center;gap:5px;margin-top:6px;padding:2px 9px 2px 3px;border-radius:999px;background:rgba(0,0,0,.4);font:700 14px var(--serif)}
+.bet i{width:16px;height:16px;border-radius:50%;background:radial-gradient(#e0463d 45%,#fff 47% 55%,#c2342c 57%);border:1px dashed #fff}
+.pot{position:absolute;top:33%;left:50%;transform:translateX(-50%);text-align:center;padding:6px 18px;border-radius:18px;background:rgba(0,0,0,.3);white-space:nowrap}
+.pot small{display:block;font-size:12px;opacity:.75}.pot b{font:700 30px/1.1 var(--serif);color:var(--brass)}
+.msg{position:absolute;top:46%;left:7%;right:7%;text-align:center;font-size:14px;line-height:1.35}.msg span{opacity:.55}
+.me{position:absolute;bottom:2%;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}
+.me .np{padding:5px 14px 8px}.me .np b{max-width:none;overflow:visible}
+.pc{position:relative;width:74px;height:106px}
+.cv{position:absolute;top:0;left:0;width:74px;height:106px;touch-action:none;cursor:grab;z-index:2}
+.kb{position:absolute;inset:0}
+.fl{position:absolute;left:-80px;top:-80px;width:234px;height:266px;pointer-events:none;clip-path:polygon(0 0,0 0,0 0);
+background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(0,0,0,.28)),repeating-linear-gradient(45deg,#a33a3a 0 5px,#8a2f2f 5px 10px)}
+.hn{font-size:13px;min-height:17px;margin-top:10px;white-space:nowrap;color:var(--brass)}.me .np{margin-top:0}
+.c{width:58px;height:84px;border-radius:9px;background:var(--ivory);color:var(--ink);display:flex;flex-direction:column;
+align-items:center;justify-content:center;font-family:var(--serif);font-weight:700;font-size:26px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+.c i{font-style:normal;font-size:24px;margin-top:4px}.c.r{color:var(--wine)}
+.c.s{width:36px;height:52px;font-size:16px;border-radius:6px}.c.s i{font-size:15px;margin-top:2px}
+.c.b{background:repeating-linear-gradient(45deg,#8c2a2a 0 5px,#6f2020 5px 10px);border:2px solid #b9484a}
+.c.big{width:74px;height:106px;font-size:34px;border-radius:11px}.c.big i{font-size:30px}
+.acts{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.w2{grid-column:span 2}.w4{grid-column:span 4}.w6{grid-column:span 6}
+button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:52px;font:600 15px var(--ui);padding:6px;border-radius:12px;border:1px solid var(--brass);background:#16201d;color:var(--ivory);cursor:pointer}
+button small{font:400 12px var(--ui);opacity:.8}
+button.p{background:var(--brass);color:var(--ink)}
+button:disabled{opacity:.3}button:active:not(:disabled){transform:scale(.97)}
+.cv .c{animation:none}
+.c.big:not(.b){position:relative}
+.ix{position:absolute;top:5px;left:7px;font:700 16px/1.05 var(--serif);text-align:center;text-decoration:none}
+.ix.br{top:auto;left:auto;bottom:5px;right:7px;transform:rotate(180deg)}
+
+.gear{position:absolute;top:4px;right:4px;width:36px;height:36px;min-height:0;padding:0;border:none;border-radius:50%;background:rgba(255,255,255,.1);font-size:22px;z-index:5}
+.cs{margin-top:-20px;height:auto;position:relative;z-index:1}.cs .sc+.sc{margin-left:-26px}.np{z-index:2}
+.sc{position:relative;width:46px;height:64px;border-radius:7px;overflow:hidden;color:#fff;border:1px solid rgba(0,0,0,.45);box-shadow:0 2px 5px rgba(0,0,0,.5)}
+.sc b{position:absolute;top:4px;left:5px;font:700 15px/1 var(--ui);text-align:center}
+.sc em{position:absolute;right:-6px;bottom:-12px;font:700 46px/1 var(--ui);font-style:normal;color:#e9e9e9;opacity:.9}
+.sc.bk{background:repeating-linear-gradient(45deg,#7c2528 0 4px,#6a1f22 4px 8px);border-color:#4d1517}
+.s-sp{background:#2a2b2f}.s-he{background:#b3262c}.s-di{background:#2358a8}.s-cl{background:#2c8a4b}
+.cs .sc:nth-child(1){transform:rotate(-8deg)}.cs .sc:nth-child(3){transform:rotate(8deg)}
+.seat.me{top:auto;width:140px}.me .bet{order:-1;margin:0 0 6px}.me .hn{margin-top:6px}
+.sq{position:fixed;left:0;right:0;bottom:0;height:min(44%,340px);z-index:20;overflow:hidden;border-top:2px solid #0c260c;
+background:radial-gradient(90% 100% at 50% 40%,#3b9230,#1d5718)}
+.sq::after{content:"";position:absolute;left:-15%;right:-15%;top:22%;height:90px;border-top:3px solid rgba(255,255,255,.13);border-radius:50%;pointer-events:none}
+.sw3{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);perspective:700px}
+.sw3 .pc{transform:rotateX(50deg) rotateZ(-26deg) scale(2.2)}
+.sq .kb{background:repeating-linear-gradient(45deg,#4b4f54 0 4px,#5e6368 4px 8px);border:3px solid #d3d6d9}
+.sq .fl{background:linear-gradient(135deg,rgba(255,255,255,.4),rgba(0,0,0,.3)),repeating-linear-gradient(45deg,#777c81 0 4px,#8b9095 4px 8px)}
+.op,.hide{position:absolute;top:10px;min-height:0;padding:9px 16px;z-index:2}
+.op{right:12px;background:#2f9e2f;border-color:#78e078;color:#fff}.hide{left:12px;background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.3)}
+#set{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;z-index:50}#set.on{display:flex}
+.sh{width:100%;max-width:460px;margin:0 auto;background:#202322;border-radius:18px 18px 0 0;padding:18px 18px 30px}
+.sh h3{margin:0 0 14px;font:700 20px var(--serif)}.row{display:flex;gap:14px;align-items:center;justify-content:space-between}
+.row small{display:block;margin-top:4px;font-size:13px;opacity:.7;line-height:1.35}
+.sw{position:relative;flex:none;width:52px;height:30px}.sw input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0}
+.sw i{position:absolute;inset:0;border-radius:15px;background:#555;transition:background .2s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw input:checked+i{background:#4caf2f}.sw input:checked+i::after{transform:translateX(22px)}
+.st{display:block;font:600 11px var(--ui);font-style:normal;color:#e9c46a;margin-top:1px}.st.f{color:#ff5a4d}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="set" onclick="if(event.target==this)this.classList.remove('on')"><div class="sh"><h3>Настройки</h3>
+<label class="row"><span><b>Сквиз — просмотр карт</b><small>Карты открываются на отдельной панели: загните уголок, чтобы посмотреть. Если выключить, карты открываются кнопкой «Смотреть».</small></span>
+<span class="sw"><input id="sqc" type="checkbox" onchange="setSQ(this.checked)"><i></i></span></label></div></div>
+<script>
+const tg=window.Telegram&&Telegram.WebApp;
+try{tg.ready();tg.expand();tg.setHeaderColor('#0b1110');tg.setBackgroundColor('#0b1110')}catch(e){}
+const ANTE=10,MAXBET=160,SU=['♠','♥','♦','♣'],RL={11:'Т'};
+let S=null,DRAG=0,PEND=0;
+const el=document.getElementById('app');
+
+function deck(){const d=[];for(const s of SU)for(const r of [6,7,8,9,10,11])d.push({r,s});
+for(let i=d.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[d[i],d[j]]=[d[j],d[i]]}return d}
+function score(h){const r=h.map(c=>c.r);
+ if(r.every(x=>x==6))return 36;if(r.every(x=>x==11))return 33;
+ return Math.max(...SU.map(s=>h.filter(c=>c.s==s).reduce((a,c)=>a+c.r,0)))}
+const pl=n=>n%10==1&&n%100!=11?'очко':[2,3,4].includes(n%10)&&!(n%100>=12&&n%100<=14)?'очка':'очков';
+const nm=h=>{const s=score(h);return s==36?'Три шестёрки · 36':s==33?'Три туза · 33':s+' '+pl(s)}
+const act=()=>S.ps.map((p,i)=>i).filter(i=>S.ps[i].in&&!S.ps[i].fold);
+const cost=(p,b=S.bet)=>p.blind?b/2:b;
+function pay(p,a){a=Math.min(a,p.chips);p.chips-=a;p.put=(p.put||0)+a;S.bank+=a}
+
+function newGame(){S={ps:[{n:'Вы',av:'🙂',chips:1000},{n:'Дядя Миша',av:'🧔',chips:1000},{n:'Лёха',av:'😎',chips:1000}],first:2};round()}
+function round(){
+ S.rev=[];S.sq=0;S.old='';S.rid=(S.rid||0)+1;const ps=S.ps;ps.forEach(p=>{p.in=p.chips>=ANTE});
+ if(!ps[0].in||ps.filter(p=>p.in).length<2){S.end=true;S.over=true;S.msg=ps[0].in?'Все соперники разорены. Вы выиграли игру!':'Фишки закончились. Игра окончена.';return render()}
+ const d=deck();S.bank=0;S.bet=ANTE;S.over=false;S.end=false;S.msg='Ставки сделаны, карты розданы.';
+ ps.forEach(p=>{p.put=0;p.op=[0,0,0];p.fold=false;p.blind=true;p.hand=p.in?[d.pop(),d.pop(),d.pop()]:[];if(p.in)pay(p,ANTE)});
+ do{S.first=(S.first+1)%3}while(!ps[S.first].in);S.turn=S.first;render();kick()}
+function kick(){if(!S.over&&S.turn!=0)setTimeout(bot,1100)}
+
+const CW=74,CH=106,OFF=80;
+function anim(ms,fn,done){const t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/ms);fn(k);k<1?requestAnimationFrame(f):done&&done()})()}
+function peel(e,P0,P1){const kb=e.firstChild,fl=e.lastChild,mx=(P0[0]+P1[0])/2,my=(P0[1]+P1[1])/2,nx=P0[0]-P1[0],ny=P0[1]-P1[1],n2=nx*nx+ny*ny;
+ const R=[[0,0],[CW,0],[CW,CH],[0,CH]],f=p=>(p[0]-mx)*nx+(p[1]-my)*ny;
+ const cut=sg=>{const o=[];for(let i=0;i<4;i++){const a=R[i],b=R[(i+1)%4],fa=sg*f(a),fb=sg*f(b);
+  if(fa>=0)o.push(a);if((fa>=0)!=(fb>=0)){const t=fa/(fa-fb);o.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t])}}return o};
+ const ps=(a,o)=>a.length>2?`polygon(${a.map(p=>`${p[0]+o}px ${p[1]+o}px`).join(',')})`:'polygon(0 0,0 0,0 0)';
+ if(n2<1){kb.style.clipPath='none';fl.style.clipPath=ps([],0);return 0}
+ const keep=cut(-1),lift=cut(1),mir=lift.map(p=>{const d=2*f(p)/n2;return[p[0]-d*nx,p[1]-d*ny]});
+ kb.style.clipPath=ps(keep,0);fl.style.clipPath=ps(mir,OFF);
+ let A=0;lift.forEach((p,i)=>{const q=lift[(i+1)%lift.length];A+=p[0]*q[1]-q[0]*p[1]});return Math.abs(A)/2/(CW*CH)}
+function go(a){if(S.over||S.turn!=0)return;doAct(a)}
+function doAct(a){const i=S.turn,p=S.ps[i];S.old=S.msg;
+ if(a=='call'){const c=cost(p);pay(p,c);S.msg=`${p.n} ставит ${c}`;if(S.bet>=MAXBET)return showdown(act())}
+ else if(a=='raise'){S.bet=Math.min(S.bet*2,MAXBET);const c=cost(p);pay(p,c);S.msg=`${p.n} повышает до ${S.bet}`}
+ else if(a=='fold'){p.fold=true;S.msg=`${p.n} пасует`}
+ else if(a=='show'){const al=act(),q=al[(al.indexOf(i)+al.length-1)%al.length],o=S.ps[q];
+  pay(p,cost(p));p.blind=o.blind=false;S.rev.push(i,q);
+  const lose=score(p.hand)>score(o.hand)?q:i;S.ps[lose].fold=true;
+  S.msg=`${p.n} вскрывает: ${o.n}. ${nm(p.hand)} против ${nm(o.hand)}, ${S.ps[lose].n} ${lose==0?'выбываете':'выбывает'}.`}
+ const al=act();if(al.length==1)return finish(al[0],S.rev.includes(al[0])?nm(S.ps[al[0]].hand):'');
+ do{S.turn=(S.turn+1)%3}while(!act().includes(S.turn));render();kick()}
+function showdown(ids){const m=Math.max(...ids.map(i=>score(S.ps[i].hand)));
+ finish(ids.filter(i=>score(S.ps[i].hand)==m),nm(S.ps[ids.find(i=>score(S.ps[i].hand)==m)].hand))}
+function finish(w,hn){const ws=[].concat(w),sh=Math.floor(S.bank/ws.length);
+ ws.forEach((i,k)=>S.ps[i].chips+=sh+(k==0?S.bank-sh*ws.length:0));S.over=true;S.ps.forEach(p=>p.put=0);
+ S.msg=ws.length>1?`Ничья (${hn}): банк ${S.bank} делят ${ws.map(i=>S.ps[i].n).join(' и ')}.`:
+ `${S.ps[ws[0]].n} ${ws[0]==0?'забираете':'забирает'} банк ${S.bank}${hn?` (${hn})`:''}.`;S.bank=0;render()}
+
+function bot(){if(S.over)return;const p=S.ps[S.turn];
+ if(p.blind&&Math.random()<.5)p.blind=false;
+ const c=score(p.hand),a=act().length,r=Math.random();let d='call';
+ if(p.blind)d=r<.1?'raise':r<.16?'fold':'call';
+ else if(c>=31)d=S.bet>=40&&r<.4?'show':'raise';
+ else if(c>=26)d=r<.4?'raise':(S.bet>=80?'show':'call');
+ else if(c>=19)d=c>=22&&r<.2?'raise':(S.bet>=80&&r<.5?'fold':'call');
+ else d=S.bet>=40?(r<.8?'fold':'call'):(r<.5?'fold':'call');
+ if(d=='raise'&&S.bet>=MAXBET)d='call';
+ if(d=='show'){const al=act();if(S.ps[al[(al.indexOf(S.turn)+al.length-1)%al.length]].blind)d='call'}
+ doAct(d)}
+
+function openAll(){const m=S.ps[0];m.blind=false;m.op=[1,1,1];S.sq=0;S.msg='Вы смотрите карты.';render()}
+function look(){const m=S.ps[0];if(S.over||!m.in||m.fold||m.op.every(x=>x))return;if(SQ){S.sq=1;render()}else openAll()}
+let SQ=true;try{SQ=localStorage.getItem('sq')!=='0'}catch(e){}
+function setSQ(v){SQ=v;try{localStorage.setItem('sq',v?'1':'0')}catch(e){}S.sq=0;render()}
+function openSet(){document.getElementById('sqc').checked=SQ;document.getElementById('set').classList.add('on')}
+function bindAll(){document.querySelectorAll('.cv').forEach(e=>{const k=+e.parentNode.dataset.k,m=S.ps[0];let P0,L0,L,fr=0,on=0;
+ const mv=v=>[v.offsetX,v.offsetY],pt=v=>{const l=mv(v);return[P0[0]+l[0]-L0[0],P0[1]+l[1]-L0[1]]};
+ e.onpointerdown=v=>{if(DRAG)return;on=1;DRAG=1;fr=0;L0=mv(v);P0=[L0[0]<CW/2?0:CW,L0[1]<CH/2?0:CH];L=P0;e.setPointerCapture(v.pointerId)};
+ e.onpointermove=v=>{if(!on)return;L=pt(v);fr=peel(e,P0,L);if(fr>.03&&m.blind){m.blind=false;S.msg='Вы смотрите карты.';S.dirty=1}};
+ const end=()=>{if(!on)return;on=0;const id=S.rid,a=L;
+  if(fr>.5){const t=[P0[0]?-CW*1.2:CW*1.2,P0[1]?-CH*1.2:CH*1.2];
+   anim(260,q=>peel(e,P0,[a[0]+(t[0]-a[0])*q,a[1]+(t[1]-a[1])*q]),()=>{DRAG=0;S.dirty=0;if(S.rid==id)m.op[k]=true;render()})}
+  else anim(250,q=>peel(e,P0,[a[0]+(P0[0]-a[0])*q,a[1]+(P0[1]-a[1])*q]),()=>{DRAG=0;if(S.dirty||PEND){S.dirty=0;render()}})};
+ e.onpointerup=end;e.onpointercancel=end})}
+function card(c,o={}){const k=`c ${o.s?'s':''} ${o.big?'big':''}`;if(o.hide)return`<div class="${k} b"></div>`;
+ const red=c.s=='♥'||c.s=='♦';return`<div class="${k} ${red?'r':''}">${o.big?`<u class="ix">${RL[c.r]||c.r}<br>${c.s}</u><u class="ix br">${RL[c.r]||c.r}<br>${c.s}</u>`:''}${RL[c.r]||c.r}<i>${c.s}</i></div>`}
+const SC={'♠':'sp','♥':'he','♦':'di','♣':'cl'};
+const sc=(c,hide)=>hide?'<div class="sc bk"></div>':`<div class="sc s-${SC[c.s]}"><b>${RL[c.r]||c.r}<br>${c.s}</b><em>${RL[c.r]||c.r}</em></div>`;
+const bet=p=>p.put?`<div class="bet"><i></i>${p.put}</div>`:'';
+const up=k=>{const m=S.ps[0];return m.op[k]||S.over||S.rev.includes(0)||m.fold};
+function seat(i){const p=S.ps[i],h=!i,t=S.turn==i&&!S.over,show=p.in&&(S.rev.includes(i)||S.over&&!p.fold),all=[0,1,2].every(up);
+ const bd=!p.in?'вышел':p.fold?'Фолд':p.blind?'в тёмную':'';
+ const cs=p.in&&(h||!p.fold||show)?p.hand.map((c,k)=>sc(c,h?!up(k):!show)).join(''):'';
+ return`<div class="seat ${h?'me':i==1?'l':'r'} ${t?'turn':''} ${!h&&(!p.in||p.fold&&!show)?'dim':''}">
+ <div class="av">${p.av}</div>
+ <div class="cs" ${h&&p.in&&!p.fold&&!S.over&&!all?'onclick="look()"':''}>${cs}</div>
+ <div class="np"><b>${p.n}${h&&bd?' · '+bd:''}</b><span>${p.chips}</span>${bd&&!h?`<i class="st ${p.fold?'f':''}">${bd}</i>`:''}${t?`<u class="bar${h?'':' bot'}"></u>`:''}</div>${bet(p)}
+ ${h&&p.in&&!p.fold?`<div class="hn">${all?nm(p.hand):S.over?'':'нажмите на карты'}</div>`:''}</div>`}
+function render(){if(DRAG){PEND=1;return}PEND=0;const m=S.ps[0],mine=!S.over&&S.turn==0,al=act().length,pa=act(),pq=S.ps[pa[(pa.indexOf(0)+pa.length-1)%pa.length]]||m;
+ const kk=[0,1,2].find(k=>!up(k)),all=kk===undefined;
+ const panel=S.sq&&SQ&&!S.over&&m.in&&!m.fold&&!all?`<div class="sq"><button class="hide" onclick="S.sq=0;render()">Скрыть</button><button class="op" onclick="openAll()">Открыть</button>
+ <div class="sw3"><div class="pc" data-k="${kk}">${card(m.hand[kk],{big:1})}<div class="cv"><div class="c big b kb"></div><div class="fl"></div></div></div></div></div>`:'';
+ el.innerHTML=`<button class="gear" onclick="openSet()">⋮</button><div class="tb">
+ <div class="deck"><div class="c s b"></div></div>${seat(1)}${seat(2)}
+ <div class="pot"><small>Банк</small><b>${S.bank}</b><small>ставка ${S.bet}</small></div>
+ <div class="msg"><span>${S.over?'':S.old||''}</span><br>${S.msg}</div>${seat(0)}</div>
+ ${S.over?`<div class="acts"><button class="p w6" onclick="${S.end?'newGame()':'round()'}">${S.end?'Играть заново':'Следующая раздача'}</button></div>`:
+ `<div class="acts">
+ <button class="w2" onclick="go('fold')" ${mine?'':'disabled'}><b>Пас</b></button>
+ <button class="p w2" onclick="go('call')" ${mine?'':'disabled'}><b>Поставить</b><small>${cost(m)}</small></button>
+ <button class="w2" onclick="go('raise')" ${mine&&S.bet<MAXBET?'':'disabled'}><b>Повысить</b><small>до ${Math.min(S.bet*2,MAXBET)}</small></button>
+ <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
+ <button class="w4" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть: ${pq.n}</b><small>${cost(m)}</small></button></div>`}${panel}`;bindAll()}
+newGame();
+</script>
+</body>
+</html>
