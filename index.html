@@ -119,16 +119,17 @@ const el=document.getElementById('app'),$=id=>document.getElementById(id);
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}};
 const PID=ls('pid')||(()=>{const v=Math.random().toString(36).slice(2)+Date.now().toString(36)+'x1';ls('pid',v);return v})();
 let NAME=ls('nm')||(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.first_name)||'Игрок';NAME=String(NAME).replace(/[<>&"'`\\]/g,'').slice(0,16);
-let S=null,LB=[],DRAG=0,PEND=0,DIRTY=0,SQP=0,ERR='',ws,V='lobby',ready=0;
+let S=null,LB=[],DRAG=0,PEND=0,DIRTY=0,SQP=0,ERR='',ws,V='lobby',ready=0,TRY=0,DIAG='';
 let SQ=true;try{SQ=localStorage.getItem('sq')!=='0'}catch(e){}
 const net=o=>{if(ws&&ws.readyState==1)ws.send(JSON.stringify(o))};
 function connect(){if(!location.host){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}try{ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/ws')}catch(e){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}
- ws.onopen=()=>{ready=1;ERR='';net({t:'hello',pid:PID,name:NAME})};
+ TRY++;{const w=ws;setTimeout(()=>{if(w.readyState==0){DIAG='нет ответа сервера';w.close()}},10000)}
+ ws.onopen=()=>{ready=1;ERR='';TRY=0;DIAG='';net({t:'hello',pid:PID,name:NAME})};
  ws.onmessage=e=>{const m=JSON.parse(e.data);
   if(m.t=='lobby'){LB=m.tables;V='lobby';S=null;SQP=0;render()}
   else if(m.t=='table'){if(!S||S.rid!=m.rid)SQP=0;const o=S&&S.rid==m.rid?S.ps[0].op:[0,0,0];m.ps[0].op=o;S=m;V='table';ERR='';render()}
   else if(m.t=='err'){ERR=m.m;render()}};
- ws.onclose=()=>{ready=0;render();setTimeout(connect,2000)}}
+ ws.onerror=()=>{DIAG='ошибка соединения'};ws.onclose=e=>{ready=0;DIAG=DIAG||('закрыто, код '+e.code);render();setTimeout(connect,2000)}}
 const nameNow=()=>{NAME=(($('nm')&&$('nm').value)||NAME).replace(/[<>&"'`\\]/g,'').trim().slice(0,16)||'Игрок';ls('nm',NAME);return NAME};
 const join=(id,lock)=>net({t:'join',id,pass:lock?$('pw'+id).value:'',nm:nameNow()});
 const mkTable=()=>net({t:'create',name:$('tn').value,pass:$('tp').value,max:+$('tm').value,nm:nameNow()});
@@ -180,7 +181,7 @@ const nm=h=>{const s=h.map(c=>c.r);if(s.every(x=>x==6))return'Три шестё�
 const TOP='<button class="gear" onclick="openSet()">⋮</button>';
 function lobby(){return TOP+`<div class="card2"><h3>Трынька</h3>
  <input id="nm" value="${NAME}" maxlength="16" placeholder="Ваше имя">
- ${ERR?`<div class="er">${ERR}</div>`:''}${ready?'':'<small>Подключаемся…</small>'}
+ ${ERR?`<div class="er">${ERR}</div>`:''}${ready?'':`<small>Подключаемся…${TRY>1?` (попытка ${TRY}${DIAG?', '+DIAG:''})`:''}</small>`}
  <h4>Столы</h4>${LB.length?LB.map(t=>`<div class="tbl"><div><b>${t.name}</b> ${t.lock?'🔒':''}<small>${t.n}/${t.max}${t.on?' · идёт игра':''}</small></div>
  ${t.lock?`<input id="pw${t.id}" placeholder="пароль">`:''}<button onclick="join('${t.id}',${t.lock})">Войти</button></div>`).join(''):'<small>Пока нет столов. Создайте первый.</small>'}
  <h4>Создать стол</h4><input id="tn" placeholder="Название стола" maxlength="16"><input id="tp" placeholder="Пароль (необязательно)" maxlength="16">
@@ -216,7 +217,7 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in,al=act().length,pa
 function render(){if(DRAG){PEND=1;return}PEND=0;
  if(V=='lobby'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=lobby();return}
  el.innerHTML=!S.started?wait():game();bindAll()}
-render();connect();
+render();connect();setInterval(()=>net({t:'ping'}),20000);
 </script>
 </body>
 </html>

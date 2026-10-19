@@ -82,7 +82,7 @@ function leave(t,p){if(t.sv)cancelSv(t,'Свара отменена');const i=se
  send(p,{t:'lobby',tables:lobbyList()});pushLobby()}
 
 function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
- if(m.t=='hello'){const pid=String(m.pid||'');if(pid.length<8||pid.length>60)return;let p=P.get(pid);if(!p){p={pid,name:'',tid:null};P.set(pid,p)}
+ if(m.t=='hello'){console.log('hello');const pid=String(m.pid||'');if(pid.length<8||pid.length>60)return;let p=P.get(pid);if(!p){p={pid,name:'',tid:null};P.set(pid,p)}
   if(p.c&&p.c!==c)try{p.c.sock.destroy()}catch(e){}p.c=c;c.p=p;p.name=clean(m.name)||p.name||'Игрок';
   const t=T.get(p.tid);if(t&&seatOf(t,pid)>=0)push(t);else{p.tid=null;send(p,{t:'lobby',tables:lobbyList()})}return}
  const p=c.p;if(!p)return;const t=T.get(p.tid);
@@ -117,7 +117,7 @@ function drop(c){const p=c.p;if(!p||p.c!==c)return;p.c=null;
 const page=path.join(__dirname,'index.html');
 const srv=http.createServer((q,r)=>{if(q.url=='/'||q.url.startsWith('/?')||q.url=='/index.html'){r.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});r.end(fs.readFileSync(page))}
  else if(q.url=='/health')r.end('ok');else{r.writeHead(404);r.end('not found')}});
-srv.on('upgrade',(q,sock)=>{if(q.url!='/ws'||!q.headers['sec-websocket-key'])return sock.destroy();
+srv.on('upgrade',(q,sock)=>{console.log('ws upgrade',q.url);if(q.url!='/ws'||!q.headers['sec-websocket-key'])return sock.destroy();
  const a=crypto.createHash('sha1').update(q.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
  sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+a+'\r\n\r\n');
  const c={sock,buf:Buffer.alloc(0),p:null};sock.on('data',d=>onData(c,d));sock.on('close',()=>drop(c));sock.on('error',()=>{})});
