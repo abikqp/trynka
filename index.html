@@ -15,7 +15,7 @@ html,body{height:100%;margin:0}
 body{background:radial-gradient(100% 70% at 50% 40%,#16201d,#0b1110);color:var(--ivory);font-family:var(--ui);
 padding:env(safe-area-inset-top,0) 14px env(safe-area-inset-bottom,0);overflow-y:auto}
 #app{position:relative;padding-top:42px!important;min-height:100%;display:flex;flex-direction:column;gap:10px;padding:8px 0 12px;max-width:460px;margin:0 auto}
-.tb{position:relative;flex:1;min-height:520px;margin:6px 4px 0;border-radius:50%/24%;border:10px solid #15110f;
+.tb{position:relative;flex:1;min-height:560px;margin:6px 4px 0;border-radius:50%/24%;border:10px solid #15110f;
 background:radial-gradient(70% 55% at 50% 45%,#23785f,#104033);box-shadow:inset 0 0 40px rgba(0,0,0,.45),0 8px 30px rgba(0,0,0,.5)}
 .tb::after{content:"";position:absolute;inset:7% 9%;border:1px solid rgba(255,255,255,.09);border-radius:50%/24%;pointer-events:none}
 .deck{position:absolute;top:3%;left:50%;transform:translateX(-50%)}
@@ -72,7 +72,7 @@ button:disabled{opacity:.3}button:active:not(:disabled){transform:scale(.97)}
 .sc.bk{background:repeating-linear-gradient(45deg,#7c2528 0 4px,#6a1f22 4px 8px);border-color:#4d1517}
 .s-sp{background:#2a2b2f}.s-he{background:#b3262c}.s-di{background:#2358a8}.s-cl{background:#2c8a4b}
 .cs .sc:nth-child(1){transform:rotate(-8deg)}.cs .sc:nth-child(3){transform:rotate(8deg)}
-.seat.me{top:auto;width:140px}.me .bet{order:-1;margin:0 0 6px}.me .hn{margin-top:6px}
+.seat.me{bottom:auto;width:106px}.me .bet{order:-1;margin:0 0 6px}.me .hn{margin-top:6px}
 .sq{position:fixed;left:0;right:0;bottom:0;height:min(44%,340px);z-index:20;overflow:hidden;border-top:2px solid #0c260c;
 background:radial-gradient(90% 100% at 50% 40%,#3b9230,#1d5718)}
 .sq::after{content:"";position:absolute;left:-15%;right:-15%;top:22%;height:90px;border-top:3px solid rgba(255,255,255,.13);border-radius:50%;pointer-events:none}
@@ -91,6 +91,19 @@ background:radial-gradient(90% 100% at 50% 40%,#3b9230,#1d5718)}
 .sw i::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
 .sw input:checked+i{background:#4caf2f}.sw input:checked+i::after{transform:translateX(22px)}
 .st{display:block;font:600 11px var(--ui);font-style:normal;color:#e9c46a;margin-top:1px}.st.f{color:#ff5a4d}
+
+.leave{position:absolute;top:4px;left:4px;min-height:0;padding:8px 12px;z-index:5;font-size:14px}
+.card2{background:rgba(0,0,0,.3);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.card2 h3{margin:0;font:700 26px var(--serif);color:var(--brass)}.card2 h4{margin:8px 0 0;font:600 15px var(--ui);opacity:.8}
+.card2 input,.card2 select{font:16px var(--ui);padding:11px;border-radius:10px;border:1px solid #3b4a45;background:#111816;color:var(--ivory);min-width:0}
+.card2 small{opacity:.7;font-size:13px}.er{color:#ff7a6b;font-size:14px}
+.tbl{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px;border-radius:12px;background:rgba(255,255,255,.06)}
+.tbl>div{flex:1;min-width:0}.tbl small{display:block}.tbl input{width:96px;padding:8px}.tbl button{min-height:0;padding:9px 14px}
+.pl{padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.07);font-size:16px}
+.seat{bottom:auto}
+.seat.me{bottom:auto}
+.msg{left:27%;right:27%;font-size:13px}
+.w3{grid-column:span 3}.svb{position:fixed;left:0;right:0;bottom:0;z-index:30}.svb .sh{display:flex;flex-direction:column;gap:6px;box-shadow:0 -8px 30px #000a}.svb .acts{margin-top:10px}.svb small{opacity:.75}
 </style>
 </head>
 <body>
@@ -101,30 +114,24 @@ background:radial-gradient(90% 100% at 50% 40%,#3b9230,#1d5718)}
 <script>
 const tg=window.Telegram&&Telegram.WebApp;
 try{tg.ready();tg.expand();tg.setHeaderColor('#0b1110');tg.setBackgroundColor('#0b1110')}catch(e){}
-const ANTE=10,MAXBET=160,SU=['♠','♥','♦','♣'],RL={11:'Т'};
-let S=null,DRAG=0,PEND=0;
-const el=document.getElementById('app');
-
-function deck(){const d=[];for(const s of SU)for(const r of [6,7,8,9,10,11])d.push({r,s});
-for(let i=d.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[d[i],d[j]]=[d[j],d[i]]}return d}
-function score(h){const r=h.map(c=>c.r);
- if(r.every(x=>x==6))return 36;if(r.every(x=>x==11))return 33;
- return Math.max(...SU.map(s=>h.filter(c=>c.s==s).reduce((a,c)=>a+c.r,0)))}
-const pl=n=>n%10==1&&n%100!=11?'очко':[2,3,4].includes(n%10)&&!(n%100>=12&&n%100<=14)?'очка':'очков';
-const nm=h=>{const s=score(h);return s==36?'Три шестёрки · 36':s==33?'Три туза · 33':s+' '+pl(s)}
-const act=()=>S.ps.map((p,i)=>i).filter(i=>S.ps[i].in&&!S.ps[i].fold);
-const cost=(p,b=S.bet)=>p.blind?b/2:b;
-function pay(p,a){a=Math.min(a,p.chips);p.chips-=a;p.put=(p.put||0)+a;S.bank+=a}
-
-function newGame(){S={ps:[{n:'Вы',av:'🙂',chips:1000},{n:'Дядя Миша',av:'🧔',chips:1000},{n:'Лёха',av:'😎',chips:1000}],first:2};round()}
-function round(){
- S.rev=[];S.sq=0;S.old='';S.rid=(S.rid||0)+1;const ps=S.ps;ps.forEach(p=>{p.in=p.chips>=ANTE});
- if(!ps[0].in||ps.filter(p=>p.in).length<2){S.end=true;S.over=true;S.msg=ps[0].in?'Все соперники разорены. Вы выиграли игру!':'Фишки закончились. Игра окончена.';return render()}
- const d=deck();S.bank=0;S.bet=ANTE;S.over=false;S.end=false;S.msg='Ставки сделаны, карты розданы.';
- ps.forEach(p=>{p.put=0;p.op=[0,0,0];p.fold=false;p.blind=true;p.hand=p.in?[d.pop(),d.pop(),d.pop()]:[];if(p.in)pay(p,ANTE)});
- do{S.first=(S.first+1)%3}while(!ps[S.first].in);S.turn=S.first;render();kick()}
-function kick(){if(!S.over&&S.turn!=0)setTimeout(bot,1100)}
-
+const MAXBET=160,SU=['♠','♥','♦','♣'],RL={11:'Т'};
+const el=document.getElementById('app'),$=id=>document.getElementById(id);
+const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}};
+const PID=ls('pid')||(()=>{const v=Math.random().toString(36).slice(2)+Date.now().toString(36)+'x1';ls('pid',v);return v})();
+let NAME=ls('nm')||(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.first_name)||'Игрок';NAME=String(NAME).replace(/[<>&"'`\\]/g,'').slice(0,16);
+let S=null,LB=[],DRAG=0,PEND=0,DIRTY=0,SQP=0,ERR='',ws,V='lobby',ready=0;
+let SQ=true;try{SQ=localStorage.getItem('sq')!=='0'}catch(e){}
+const net=o=>{if(ws&&ws.readyState==1)ws.send(JSON.stringify(o))};
+function connect(){if(!location.host){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}try{ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/ws')}catch(e){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}
+ ws.onopen=()=>{ready=1;ERR='';net({t:'hello',pid:PID,name:NAME})};
+ ws.onmessage=e=>{const m=JSON.parse(e.data);
+  if(m.t=='lobby'){LB=m.tables;V='lobby';S=null;SQP=0;render()}
+  else if(m.t=='table'){if(!S||S.rid!=m.rid)SQP=0;const o=S&&S.rid==m.rid?S.ps[0].op:[0,0,0];m.ps[0].op=o;S=m;V='table';ERR='';render()}
+  else if(m.t=='err'){ERR=m.m;render()}};
+ ws.onclose=()=>{ready=0;render();setTimeout(connect,2000)}}
+const nameNow=()=>{NAME=(($('nm')&&$('nm').value)||NAME).replace(/[<>&"'`\\]/g,'').trim().slice(0,16)||'Игрок';ls('nm',NAME);return NAME};
+const join=(id,lock)=>net({t:'join',id,pass:lock?$('pw'+id).value:'',nm:nameNow()});
+const mkTable=()=>net({t:'create',name:$('tn').value,pass:$('tp').value,max:+$('tm').value,nm:nameNow()});
 const CW=74,CH=106,OFF=80;
 function anim(ms,fn,done){const t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/ms);fn(k);k<1?requestAnimationFrame(f):done&&done()})()}
 function peel(e,P0,P1){const kb=e.firstChild,fl=e.lastChild,mx=(P0[0]+P1[0])/2,my=(P0[1]+P1[1])/2,nx=P0[0]-P1[0],ny=P0[1]-P1[1],n2=nx*nx+ny*ny;
@@ -136,80 +143,80 @@ function peel(e,P0,P1){const kb=e.firstChild,fl=e.lastChild,mx=(P0[0]+P1[0])/2,m
  const keep=cut(-1),lift=cut(1),mir=lift.map(p=>{const d=2*f(p)/n2;return[p[0]-d*nx,p[1]-d*ny]});
  kb.style.clipPath=ps(keep,0);fl.style.clipPath=ps(mir,OFF);
  let A=0;lift.forEach((p,i)=>{const q=lift[(i+1)%lift.length];A+=p[0]*q[1]-q[0]*p[1]});return Math.abs(A)/2/(CW*CH)}
-function go(a){if(S.over||S.turn!=0)return;doAct(a)}
-function doAct(a){const i=S.turn,p=S.ps[i];S.old=S.msg;
- if(a=='call'){const c=cost(p);pay(p,c);S.msg=`${p.n} ставит ${c}`;if(S.bet>=MAXBET)return showdown(act())}
- else if(a=='raise'){S.bet=Math.min(S.bet*2,MAXBET);const c=cost(p);pay(p,c);S.msg=`${p.n} повышает до ${S.bet}`}
- else if(a=='fold'){p.fold=true;S.msg=`${p.n} пасует`}
- else if(a=='show'){const al=act(),q=al[(al.indexOf(i)+al.length-1)%al.length],o=S.ps[q];
-  pay(p,cost(p));p.blind=o.blind=false;S.rev.push(i,q);
-  const lose=score(p.hand)>score(o.hand)?q:i;S.ps[lose].fold=true;
-  S.msg=`${p.n} вскрывает: ${o.n}. ${nm(p.hand)} против ${nm(o.hand)}, ${S.ps[lose].n} ${lose==0?'выбываете':'выбывает'}.`}
- const al=act();if(al.length==1)return finish(al[0],S.rev.includes(al[0])?nm(S.ps[al[0]].hand):'');
- do{S.turn=(S.turn+1)%3}while(!act().includes(S.turn));render();kick()}
-function showdown(ids){const m=Math.max(...ids.map(i=>score(S.ps[i].hand)));
- finish(ids.filter(i=>score(S.ps[i].hand)==m),nm(S.ps[ids.find(i=>score(S.ps[i].hand)==m)].hand))}
-function finish(w,hn){const ws=[].concat(w),sh=Math.floor(S.bank/ws.length);
- ws.forEach((i,k)=>S.ps[i].chips+=sh+(k==0?S.bank-sh*ws.length:0));S.over=true;S.ps.forEach(p=>p.put=0);
- S.msg=ws.length>1?`Ничья (${hn}): банк ${S.bank} делят ${ws.map(i=>S.ps[i].n).join(' и ')}.`:
- `${S.ps[ws[0]].n} ${ws[0]==0?'забираете':'забирает'} банк ${S.bank}${hn?` (${hn})`:''}.`;S.bank=0;render()}
-
-function bot(){if(S.over)return;const p=S.ps[S.turn];
- if(p.blind&&Math.random()<.5)p.blind=false;
- const c=score(p.hand),a=act().length,r=Math.random();let d='call';
- if(p.blind)d=r<.1?'raise':r<.16?'fold':'call';
- else if(c>=31)d=S.bet>=40&&r<.4?'show':'raise';
- else if(c>=26)d=r<.4?'raise':(S.bet>=80?'show':'call');
- else if(c>=19)d=c>=22&&r<.2?'raise':(S.bet>=80&&r<.5?'fold':'call');
- else d=S.bet>=40?(r<.8?'fold':'call'):(r<.5?'fold':'call');
- if(d=='raise'&&S.bet>=MAXBET)d='call';
- if(d=='show'){const al=act();if(S.ps[al[(al.indexOf(S.turn)+al.length-1)%al.length]].blind)d='call'}
- doAct(d)}
-
-function openAll(){const m=S.ps[0];m.blind=false;m.op=[1,1,1];S.sq=0;S.msg='Вы смотрите карты.';render()}
-function look(){const m=S.ps[0];if(S.over||!m.in||m.fold||m.op.every(x=>x))return;if(SQ){S.sq=1;render()}else openAll()}
-let SQ=true;try{SQ=localStorage.getItem('sq')!=='0'}catch(e){}
-function setSQ(v){SQ=v;try{localStorage.setItem('sq',v?'1':'0')}catch(e){}S.sq=0;render()}
-function openSet(){document.getElementById('sqc').checked=SQ;document.getElementById('set').classList.add('on')}
 function bindAll(){document.querySelectorAll('.cv').forEach(e=>{const k=+e.parentNode.dataset.k,m=S.ps[0];let P0,L0,L,fr=0,on=0;
  const mv=v=>[v.offsetX,v.offsetY],pt=v=>{const l=mv(v);return[P0[0]+l[0]-L0[0],P0[1]+l[1]-L0[1]]};
  e.onpointerdown=v=>{if(DRAG)return;on=1;DRAG=1;fr=0;L0=mv(v);P0=[L0[0]<CW/2?0:CW,L0[1]<CH/2?0:CH];L=P0;e.setPointerCapture(v.pointerId)};
- e.onpointermove=v=>{if(!on)return;L=pt(v);fr=peel(e,P0,L);if(fr>.03&&m.blind){m.blind=false;S.msg='Вы смотрите карты.';S.dirty=1}};
+ e.onpointermove=v=>{if(!on)return;L=pt(v);fr=peel(e,P0,L);if(fr>.03&&m.blind){m.blind=false;DIRTY=1;net({t:'look'})}};
  const end=()=>{if(!on)return;on=0;const id=S.rid,a=L;
   if(fr>.5){const t=[P0[0]?-CW*1.2:CW*1.2,P0[1]?-CH*1.2:CH*1.2];
-   anim(260,q=>peel(e,P0,[a[0]+(t[0]-a[0])*q,a[1]+(t[1]-a[1])*q]),()=>{DRAG=0;S.dirty=0;if(S.rid==id)m.op[k]=true;render()})}
-  else anim(250,q=>peel(e,P0,[a[0]+(P0[0]-a[0])*q,a[1]+(P0[1]-a[1])*q]),()=>{DRAG=0;if(S.dirty||PEND){S.dirty=0;render()}})};
+   anim(260,q=>peel(e,P0,[a[0]+(t[0]-a[0])*q,a[1]+(t[1]-a[1])*q]),()=>{DRAG=0;DIRTY=0;if(S.rid==id)m.op[k]=true;render()})}
+  else anim(250,q=>peel(e,P0,[a[0]+(P0[0]-a[0])*q,a[1]+(P0[1]-a[1])*q]),()=>{DRAG=0;if(DIRTY||PEND){DIRTY=0;render()}})};
  e.onpointerup=end;e.onpointercancel=end})}
 function card(c,o={}){const k=`c ${o.s?'s':''} ${o.big?'big':''}`;if(o.hide)return`<div class="${k} b"></div>`;
  const red=c.s=='♥'||c.s=='♦';return`<div class="${k} ${red?'r':''}">${o.big?`<u class="ix">${RL[c.r]||c.r}<br>${c.s}</u><u class="ix br">${RL[c.r]||c.r}<br>${c.s}</u>`:''}${RL[c.r]||c.r}<i>${c.s}</i></div>`}
 const SC={'♠':'sp','♥':'he','♦':'di','♣':'cl'};
 const sc=(c,hide)=>hide?'<div class="sc bk"></div>':`<div class="sc s-${SC[c.s]}"><b>${RL[c.r]||c.r}<br>${c.s}</b><em>${RL[c.r]||c.r}</em></div>`;
-const bet=p=>p.put?`<div class="bet"><i></i>${p.put}</div>`:'';
+const act=()=>S.ps.map((p,i)=>i).filter(i=>S.ps[i].in&&!S.ps[i].fold);
+const cost=p=>p.blind?S.bet/2:S.bet;
+const go=a=>{if(S&&!S.over&&S.turn==0)net({t:'act',a})};
 const up=k=>{const m=S.ps[0];return m.op[k]||S.over||S.rev.includes(0)||m.fold};
-function seat(i){const p=S.ps[i],h=!i,t=S.turn==i&&!S.over,show=p.in&&(S.rev.includes(i)||S.over&&!p.fold),all=[0,1,2].every(up);
- const bd=!p.in?'вышел':p.fold?'Фолд':p.blind?'в тёмную':'';
- const cs=p.in&&(h||!p.fold||show)?p.hand.map((c,k)=>sc(c,h?!up(k):!show)).join(''):'';
- return`<div class="seat ${h?'me':i==1?'l':'r'} ${t?'turn':''} ${!h&&(!p.in||p.fold&&!show)?'dim':''}">
+const allUp=()=>!S.ps[0].in||[0,1,2].every(up);
+function openAll(){const m=S.ps[0];if(m.blind)net({t:'look'});m.blind=false;m.op.fill(1);SQP=0;render()}
+function look(){const m=S.ps[0];if(S.over||!m.in||m.fold||allUp())return;if(SQ)SQP=1,render();else openAll()}
+function setSQ(v){SQ=v;try{localStorage.setItem('sq',v?'1':'0')}catch(e){}SQP=0;render()}
+function openSet(){$('sqc').checked=SQ;$('set').classList.add('on')}
+const bet=p=>p.put?`<div class="bet"><i></i>${p.put}</div>`:'';
+function seat(i){const n=S.ps.length,p=S.ps[i],h=!i,t=S.turn==i&&!S.over&&p.in,show=p.in&&(S.rev.includes(i)||S.over&&!p.fold),all=allUp();
+ const th=(90+360*i/n)*Math.PI/180,x=50+40*Math.cos(th),y=50+36*Math.sin(th),k=n<5?1:n<7?.9:.78;
+ const bd=!p.in?(S.started?'ждёт':''):p.fold?'Фолд':p.blind?'в тёмную':'';
+ const cs=p.in&&(h||!p.fold||show)?p.hand.map((c,j)=>sc(c,h?!up(j):!show)).join(''):'';
+ return`<div class="seat ${h?'me':''} ${t?'turn':''} ${!h&&(!p.in||p.fold&&!show)?'dim':''}" style="left:${x}%;top:${y}%;transform:translate(-50%,-50%) scale(${k})">
  <div class="av">${p.av}</div>
  <div class="cs" ${h&&p.in&&!p.fold&&!S.over&&!all?'onclick="look()"':''}>${cs}</div>
  <div class="np"><b>${p.n}${h&&bd?' · '+bd:''}</b><span>${p.chips}</span>${bd&&!h?`<i class="st ${p.fold?'f':''}">${bd}</i>`:''}${t?`<u class="bar${h?'':' bot'}"></u>`:''}</div>${bet(p)}
  ${h&&p.in&&!p.fold?`<div class="hn">${all?nm(p.hand):S.over?'':'нажмите на карты'}</div>`:''}</div>`}
-function render(){if(DRAG){PEND=1;return}PEND=0;const m=S.ps[0],mine=!S.over&&S.turn==0,al=act().length,pa=act(),pq=S.ps[pa[(pa.indexOf(0)+pa.length-1)%pa.length]]||m;
- const kk=[0,1,2].find(k=>!up(k)),all=kk===undefined;
- const panel=S.sq&&SQ&&!S.over&&m.in&&!m.fold&&!all?`<div class="sq"><button class="hide" onclick="S.sq=0;render()">Скрыть</button><button class="op" onclick="openAll()">Открыть</button>
+const nm=h=>{const s=h.map(c=>c.r);if(s.every(x=>x==6))return'Три шестёрки · 36';if(s.every(x=>x==11))return'Три туза · 33';
+ const v=Math.max(...SU.map(u=>h.filter(c=>c.s==u).reduce((a,c)=>a+c.r,0))),d=v%10,e=v%100;return v+' '+(d==1&&e!=11?'очко':d>1&&d<5&&(e<12||e>14)?'очка':'очков')};
+const TOP='<button class="gear" onclick="openSet()">⋮</button>';
+function lobby(){return TOP+`<div class="card2"><h3>Трынька</h3>
+ <input id="nm" value="${NAME}" maxlength="16" placeholder="Ваше имя">
+ ${ERR?`<div class="er">${ERR}</div>`:''}${ready?'':'<small>Подключаемся…</small>'}
+ <h4>Столы</h4>${LB.length?LB.map(t=>`<div class="tbl"><div><b>${t.name}</b> ${t.lock?'🔒':''}<small>${t.n}/${t.max}${t.on?' · идёт игра':''}</small></div>
+ ${t.lock?`<input id="pw${t.id}" placeholder="пароль">`:''}<button onclick="join('${t.id}',${t.lock})">Войти</button></div>`).join(''):'<small>Пока нет столов. Создайте первый.</small>'}
+ <h4>Создать стол</h4><input id="tn" placeholder="Название стола" maxlength="16"><input id="tp" placeholder="Пароль (необязательно)" maxlength="16">
+ <select id="tm">${[2,3,4,5,6,7,8].map(k=>`<option ${k==4?'selected':''} value="${k}">${k} игрока(ов)</option>`).join('')}</select>
+ <button class="p" onclick="mkTable()">Создать стол</button></div>`}
+function wait(){return TOP+`<button class="leave" onclick="net({t:'leave'})">← Выйти</button><div class="card2"><h3>${S.name}</h3>
+ <small>Игроков: ${S.ps.length} из ${S.max}</small>${ERR?`<div class="er">${ERR}</div>`:''}${S.ps.map(p=>`<div class="pl">${p.av} ${p.n}</div>`).join('')}
+ ${S.host?`<button class="p" onclick="net({t:'start'})" ${S.ps.length>1?'':'disabled'}>Начать игру</button>`:'<small>Ждём, пока хозяин начнёт игру</small>'}</div>`}
+const SKIP={k:0};
+function svbox(){const v=S.sv;if(!v){SKIP.k=0;return''}if(S.over||SKIP.k==S.rid)return'';
+ const b=(t,l,c)=>`<button class="${c||''} w3" onclick="${t}">${l}</button>`;let h;
+ if(v.ph=='vote')h=v.you=='vote'?`<b>${v.from} предлагает свару</b><small>Новая раздача, банк (${v.bank}) остаётся. Нужно согласие всех игроков.</small><div class="acts">${b("net({t:'svar',ok:0})",'Против')}${b("net({t:'svar',ok:1})",'Согласен','p')}</div>`
+  :v.you=='prop'?`<b>Вы предложили свару</b><small>Согласны: ${v.yes} из ${v.need}</small><div class="acts">${b("net({t:'svar',ok:0})",'Отменить')}</div>`
+  :`<b>Свара: ждём ответов</b><small>Согласны: ${v.yes} из ${v.need}</small>`;
+ else h=v.you=='join'?`<b>Свара! Войти в игру?</b><small>Вход: ${v.half} (банк ${v.bank} поровну на ${v.need} игр.).</small><div class="acts">${b("SKIP.k=S.rid;render()",'Пропустить')}${b("net({t:'sjoin'})",'Войти за '+v.half,'p')}</div>`
+  :v.you=='joined'?`<b>Вы в свару</b><small>Сейчас будет новая раздача.</small>`:`<b>Свара</b><small>Идёт набор желающих, банк ${v.bank}.</small>`;
+ return`<div class="svb"><div class="sh">${h}</div></div>`}
+function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in,al=act().length,pa=act(),pq=S.ps[pa[(pa.indexOf(0)+pa.length-1)%pa.length]]||m;
+ const kk=[0,1,2].find(k=>!up(k)),all=allUp();
+ const panel=SQP&&SQ&&!S.over&&m.in&&!m.fold&&!all?`<div class="sq"><button class="hide" onclick="SQP=0;render()">Скрыть</button><button class="op" onclick="openAll()">Открыть</button>
  <div class="sw3"><div class="pc" data-k="${kk}">${card(m.hand[kk],{big:1})}<div class="cv"><div class="c big b kb"></div><div class="fl"></div></div></div></div></div>`:'';
- el.innerHTML=`<button class="gear" onclick="openSet()">⋮</button><div class="tb">
- <div class="deck"><div class="c s b"></div></div>${seat(1)}${seat(2)}
- <div class="pot"><small>Банк</small><b>${S.bank}</b><small>ставка ${S.bet}</small></div>
- <div class="msg"><span>${S.over?'':S.old||''}</span><br>${S.msg}</div>${seat(0)}</div>
- ${S.over?`<div class="acts"><button class="p w6" onclick="${S.end?'newGame()':'round()'}">${S.end?'Играть заново':'Следующая раздача'}</button></div>`:
+ return TOP+`<button class="leave" onclick="net({t:'leave'})">←</button><div class="tb">${S.ps.map((p,i)=>seat(i)).join('')}
+ <div class="pot"><small>${S.name} · банк</small><b>${S.bank}</b><small>ставка ${S.bet}</small></div>
+ <div class="msg"><span>${S.over?'':S.old||''}</span><br>${S.msg}</div></div>
+ ${S.over?`<div class="acts"><button class="p w6" onclick="net({t:'${S.end?'start':'next'}'})">${S.end?'Играть заново':'Следующая раздача'}</button></div>`:
  `<div class="acts">
  <button class="w2" onclick="go('fold')" ${mine?'':'disabled'}><b>Пас</b></button>
  <button class="p w2" onclick="go('call')" ${mine?'':'disabled'}><b>Поставить</b><small>${cost(m)}</small></button>
  <button class="w2" onclick="go('raise')" ${mine&&S.bet<MAXBET?'':'disabled'}><b>Повысить</b><small>до ${Math.min(S.bet*2,MAXBET)}</small></button>
  <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
- <button class="w4" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть: ${pq.n}</b><small>${cost(m)}</small></button></div>`}${panel}`;bindAll()}
-newGame();
+ <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
+ <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al>=2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}`}
+function render(){if(DRAG){PEND=1;return}PEND=0;
+ if(V=='lobby'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=lobby();return}
+ el.innerHTML=!S.started?wait():game();bindAll()}
+render();connect();
 </script>
 </body>
 </html>
