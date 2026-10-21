@@ -6,7 +6,20 @@ const clean=s=>String(s||'').replace(/[<>&"'`\\]/g,'').trim().slice(0,16);
 const DB=path.join(__dirname,'data.json');let store={};try{store=JSON.parse(fs.readFileSync(DB,'utf8'))}catch(e){}
 let svT=0;const save=()=>{clearTimeout(svT);svT=setTimeout(()=>{try{fs.writeFileSync(DB,JSON.stringify(store))}catch(e){}},2000)};
 const bal=pid=>{const b=store[pid]&&store[pid].b;return b>=ANTE?b:1000};
-const setBal=(pid,v)=>{(store[pid]=store[pid]||{}).b=Math.max(0,Math.floor(v));save()};
+const setBal=(pid,v)=>{const o=store[pid]=store[pid]||{};o.b=Math.max(0,Math.floor(v));const st=o.st=o.st||{};if(o.b>(st.mx||0))st.mx=o.b;save()};
+const stat=(pid,k,n=1)=>{const o=store[pid]=store[pid]||{},st=o.st=o.st||{};st[k]=(st[k]||0)+n;save()};
+const statMax=(pid,k,v)=>{const o=store[pid]=store[pid]||{},st=o.st=o.st||{};if(v>(st[k]||0)){st[k]=v;save()}};
+const bonusLeft=pid=>Math.max(0,((store[pid]&&store[pid].bn)||0)+86400000-Date.now());
+const meMsg=p=>({t:'me',bal:bal(p.pid),st:(store[p.pid]&&store[p.pid].st)||{},bonus:bonusLeft(p.pid),name:p.name,bk:mkBk(p.pid)});
+// ---- подписанная копия баланса и статистики (восстановление после сброса сервера) ----
+const SECRET=process.env.SECRET||(console.log('ВНИМАНИЕ: переменная SECRET не задана, копии не переживут перезапуск'),crypto.randomBytes(32).toString('hex'));
+const sig=(pid,d)=>crypto.createHmac('sha256',SECRET).update(pid+'|'+d).digest('hex');
+const mkBk=pid=>{const o=store[pid]||{},d=JSON.stringify({b:bal(pid),st:o.st||{},bn:o.bn||0});return{d,s:sig(pid,d)}};
+function restore(pid,bk){const o0=store[pid];if(o0&&(o0.b!=null||o0.st)||!bk||typeof bk.d!='string'||typeof bk.s!='string')return;
+ const ok=sig(pid,bk.d);if(ok.length!=bk.s.length||!crypto.timingSafeEqual(Buffer.from(ok),Buffer.from(bk.s)))return;
+ try{const d=JSON.parse(bk.d),o=store[pid]=store[pid]||{};if(d.b>=0&&d.b<1e9)o.b=Math.floor(d.b);o.st={};
+  for(const k of ['g','w','sv','svw','big','mx','aaa','s666','sp'])if(d.st&&d.st[k]>0&&d.st[k]<1e9)o.st[k]=Math.floor(d.st[k]);if(d.bn>0)o.bn=d.bn;save()}catch(e){}}
+
 const AVS=new Map(),h12=pid=>crypto.createHash('sha1').update(pid).digest('hex').slice(0,12);
 const okUrl=u=>{try{const x=new URL(u);return x.protocol=='https:'&&(x.hostname=='t.me'||x.hostname.endsWith('.telesco.pe')||x.hostname.endsWith('.telegram.org'))}catch(e){return false}};
 const avOf=p=>p.ai?`/av/${h12(p.pid)}?v=${p.ai}`:(p.au||p.ae||'');
@@ -66,7 +79,7 @@ const push=t=>t.ps.forEach(s=>send(P.get(s.pid),view(t,s.pid)));
 const TURN=20000;
 const tick=t=>{clearTimeout(t.tm);t.dl=Date.now()+TURN;t.tm=setTimeout(()=>{const s=t.ps[t.turn];if(t.started&&!t.over&&!t.sv&&s)act(t,s,'fold')},TURN)};
 
-function round(t){clearTimeout(t.tm);t.sv=null;t.ps=t.ps.filter(s=>!s.gone);const ps=t.ps,n=ps.length;
+function round(t){clearTimeout(t.tm);t.sv=null;t.sva=0;t.ps=t.ps.filter(s=>!s.gone);const ps=t.ps,n=ps.length;
  ps.forEach(s=>{s.in=s.chips>=ANTE;s.fold=false;s.blind=true;s.hand=[];s.put=0});
  t.rev=[];t.rid++;t.old='';t.bank=0;const live=ps.filter(s=>s.in);
  if(live.length<2){t.over=true;t.end=true;t.msg=live.length?`${live[0].name} выиграл игру!`:'Игра окончена.';t.turn=0;return push(t)}
@@ -79,9 +92,10 @@ function finish(t,ws,hn){clearTimeout(t.tm);t.dl=0;
  if(ck.length){const part=[...ws,...ck];part.forEach(x=>{const i=t.ps.indexOf(x);if(!t.rev.includes(i))t.rev.push(i)});t.cook=[];t.split=[];
   t.sv={ph:'vote',from:ws[0].pid,yes:new Set(),tm:null,auto:1,part:part.map(x=>x.pid),pre:`${ws[0].name} побеждает, но ${ck.map(x=>x.name).join(' и ')} варит. Свара! `};return startJoin(t)}
  const sp=(t.split||[]).map(pid=>t.ps.find(x=>x.pid==pid)).filter(x=>x&&!ws.includes(x)),al=[...ws,...sp],sh=Math.floor(t.bank/al.length);
- al.forEach((s,k)=>s.chips+=sh+(k==0?t.bank-sh*al.length:0));t.over=true;t.overAt=Date.now();
+ al.forEach((s,k)=>s.chips+=sh+(k==0?t.bank-sh*al.length:0));
+ t.ps.forEach(s=>{if(s.in)stat(s.pid,'g')});ws.forEach(s=>{stat(s.pid,'w');statMax(s.pid,'big',t.bank);if(t.sva)stat(s.pid,'svw')});t.sva=0;t.over=true;t.overAt=Date.now();
  t.msg=sp.length?`${ws[0].name} побеждает${hn?` (${hn})`:''}, банк ${t.bank} делят: ${al.map(s=>s.name).join(' и ')}.`:ws.length>1?`Ничья (${hn}): банк ${t.bank} делят ${ws.map(s=>s.name).join(' и ')}.`:`${ws[0].name} забирает банк ${t.bank}${hn?` (${hn})`:''}.`;
- t.bank=0;t.ps.forEach(s=>{s.put=0;setBal(s.pid,s.chips)});push(t)}
+ t.bank=0;t.ps.forEach(s=>{s.put=0;setBal(s.pid,s.chips)});push(t);t.ps.forEach(s=>send(P.get(s.pid),meMsg(s)))}
 function showdown(t,ids){const m=Math.max(...ids.map(i=>score(t.ps[i].hand)));const w=ids.filter(i=>score(t.ps[i].hand)==m).map(i=>t.ps[i]);finish(t,w,nm(w[0].hand))}
 function act(t,s,a,amt){if(t.over||t.sv||t.pick||t.ps[t.turn]!==s)return;const i=t.turn;t.old=t.msg;
  if(a=='call'){const c=cost(t,s);pay(t,s,c);t.msg=`${s.name} ставит ${c}`}
@@ -105,7 +119,7 @@ function svv(t,pid){const v=t.sv,s=t.ps[seatOf(t,pid)];if(!v||!s)return null;let
 function cancelSv(t,msg){if(!t.sv)return;clearTimeout(t.sv.tm);t.sv=null;t.svCool=Date.now()+15000;t.msg=msg;tick(t);push(t)}
 function startJoin(t){const v=t.sv;clearTimeout(v.tm);v.ph='join';v.half=Math.ceil(t.bank/Math.max(1,v.part?v.part.length:alive(t).length));v.joined=new Set();
  if(!t.ps.some(s=>canJoin(t,s)))return dealSvara(t);t.msg=(v.pre||(v.auto?'Ничья, свара! ':'Все согласны на свару. '))+'Желающие могут войти за '+v.half;v.tm=setTimeout(()=>dealSvara(t),15000);push(t)}
-function dealSvara(t){const v=t.sv;if(!v)return;clearTimeout(v.tm);const part=new Set([...(v.part||alive(t).map(i=>t.ps[i].pid)),...v.joined]);
+function dealSvara(t){const v=t.sv;if(!v)return;clearTimeout(v.tm);const part=new Set([...(v.part||alive(t).map(i=>t.ps[i].pid)),...v.joined]);part.forEach(pid=>stat(pid,'sv'));t.sva=1;
  const d=deck(),ps=t.ps,n=ps.length;ps.forEach(s=>{const k=part.has(s.pid);s.in=k;s.fold=false;s.blind=true;s.put=0;s.hand=k?[d.pop(),d.pop(),d.pop()]:[]});
  t.sv=null;t.bet=ANTE;t.rev=[];t.rid++;t.old='';t.first=(t.first+1)%n;while(!ps[t.first].in)t.first=(t.first+1)%n;t.turn=t.first;
  t.msg=`Свара! В банке ${t.bank}. Новая раздача.`;t.pick=null;afterDeal(t)}
@@ -113,7 +127,7 @@ function dealSvara(t){const v=t.sv;if(!v)return;clearTimeout(v.tm);const part=ne
 // ---- три десятки / три семёрки: открыть карты и выбрать (делить банк или варить) ----
 const isSpecial=h=>h.length==3&&h.every(c=>c.r==h[0].r)&&(h[0].r==10||h[0].r==7);
 const kind=h=>h[0].r==10?'три десятки':'три семёрки';
-function afterDeal(t){t.split=[];t.cook=[];t.pq=t.ps.map((s,i)=>i).filter(i=>t.ps[i].in&&isSpecial(t.ps[i].hand));nextPick(t)}
+function afterDeal(t){t.split=[];t.cook=[];t.ps.forEach(s=>{if(s.in&&s.hand.length){const r=s.hand.map(c=>c.r);if(r.every(x=>x==11))stat(s.pid,'aaa');else if(r.every(x=>x==6))stat(s.pid,'s666');else if(isSpecial(s.hand))stat(s.pid,'sp')}});t.pq=t.ps.map((s,i)=>i).filter(i=>t.ps[i].in&&isSpecial(t.ps[i].hand));nextPick(t)}
 function nextPick(t){clearTimeout(t.pt);if(!t.pq.length){t.pick=null;tick(t);return push(t)}
  const i=t.pq[0],s=t.ps[i];t.pick={i};if(!t.rev.includes(i))t.rev.push(i);s.blind=false;clearTimeout(t.tm);
  t.msg=`${s.name}: ${kind(s.hand)}! Выбирает: делить банк или варить`;t.pt=setTimeout(()=>choose(t,s,'split'),20000);push(t)}
@@ -126,14 +140,17 @@ function leave(t,p){if(t.sv)cancelSv(t,'Свара отменена');const i=se
  else t.ps.splice(i,1);
  const rest=t.ps.filter(x=>!x.gone);
  if(!rest.length){clearTimeout(t.tm);T.delete(t.id)}else{if(!rest.some(x=>x.pid==t.host))t.host=rest[0].pid;push(t)}
- send(p,{t:'lobby',tables:lobbyList()});pushLobby()}
+ send(p,{t:'lobby',tables:lobbyList()});send(p,meMsg(p));pushLobby()}
 
 function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
  if(m.t=='hello'){console.log('hello');const pid=String(m.pid||'');if(pid.length<8||pid.length>60)return;let p=P.get(pid);if(!p){p={pid,name:'',tid:null};P.set(pid,p)}
-  if(p.c&&p.c!==c)kill(p.c);p.c=c;c.p=p;p.name=clean(m.name)||p.name||'Игрок';if(!store[pid]&&+m.bal>=ANTE&&+m.bal<1e9)setBal(pid,+m.bal);if(m.av)setAv(p,m.av);
-  const t=T.get(p.tid);if(t&&seatOf(t,pid)>=0)push(t);else{p.tid=null;send(p,{t:'lobby',tables:lobbyList()})}return}
+  if(p.c&&p.c!==c)kill(p.c);p.c=c;c.p=p;p.name=clean(m.name)||p.name||'Игрок';if(m.av)setAv(p,m.av);restore(pid,m.bk);
+  send(p,meMsg(p));const t=T.get(p.tid);if(t&&seatOf(t,pid)>=0)push(t);else{p.tid=null;send(p,{t:'lobby',tables:lobbyList()})}return}
  const p=c.p;if(!p)return;const t=T.get(p.tid);
  if(m.t=='av')return setAv(p,m.av);
+ if(m.t=='me')return send(p,meMsg(p));
+ if(m.t=='name'){p.name=clean(m.name)||p.name;const s=t&&t.ps[seatOf(t,p.pid)];if(s){s.name=p.name;push(t)}return send(p,meMsg(p))}
+ if(m.t=='bonus'){if(!p.tid&&bonusLeft(p.pid)==0){setBal(p.pid,bal(p.pid)+500);store[p.pid].bn=Date.now();save()}return send(p,meMsg(p))}
  if(m.t=='create'&&!p.tid){if(T.size>200)return send(p,{t:'err',m:'Слишком много столов'});p.name=clean(m.nm)||p.name;
   const nt={id:String(nid++),name:clean(m.name)||'Стол',pass:String(m.pass||'').slice(0,16),max:Math.min(8,Math.max(2,+m.max|0||4)),ps:[],started:false,
    bet:ANTE,bank:0,turn:0,first:-1,over:true,rev:[],msg:'',old:'',rid:0,host:p.pid};

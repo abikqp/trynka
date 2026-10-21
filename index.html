@@ -132,6 +132,13 @@ body[data-deck=classic] .sc em{color:currentColor;opacity:.22}
 #cm{height:34vh;overflow:auto;display:flex;flex-direction:column;gap:6px;margin:10px 0}.cmsg{font-size:15px;line-height:1.3}.cmsg b{color:var(--brass)}
 .cin{display:flex;gap:8px}.cin input{flex:1;min-width:0;font:16px var(--ui);padding:11px;border-radius:10px;border:1px solid #3b4a45;background:#111816;color:var(--ivory)}
 .sh input[type=range]{width:100%;margin:10px 0}
+
+.menu{display:flex;flex-direction:column;gap:12px;margin-top:34px}.menu h1{font:700 46px var(--serif);color:var(--brass);margin:10px 0 0;text-align:center}.menu>small{text-align:center;opacity:.7;margin-bottom:10px}
+.mb{min-height:60px;font-size:19px;flex-direction:row;justify-content:flex-start;gap:12px;padding:0 18px;text-align:left}.mb i{margin-left:auto;font-style:normal;font:700 20px var(--serif);color:var(--brass)}.mb.p i{color:var(--ink)}
+.stg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stg div{background:rgba(255,255,255,.06);border-radius:12px;padding:10px}.stg b{display:block;font:700 22px var(--serif);color:var(--brass)}.stg small{opacity:.7}
+.ach{display:flex;gap:12px;align-items:center;padding:10px;border-radius:12px;background:rgba(255,255,255,.06)}.ach.on{outline:1px solid var(--brass)}.ach .ic{font-size:28px;width:40px;text-align:center}.ach>div:last-child{flex:1}
+.ach .pb{height:6px;border-radius:3px;background:#333;margin-top:6px}.ach .pb u{display:block;height:100%;border-radius:3px;background:var(--brass)}.ach small{opacity:.7}
+.bigbal{font:700 58px var(--serif);color:var(--brass);text-align:center}.pav{width:84px;height:84px;border-radius:50%;background:#2a3532;border:2px solid #3b4a45;font-size:46px;display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden}.pav img{width:100%;height:100%;object-fit:cover}
 </style>
 </head>
 <body>
@@ -154,14 +161,14 @@ const el=document.getElementById('app'),$=id=>document.getElementById(id);
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}};
 const PID=ls('pid')||(()=>{const v=Math.random().toString(36).slice(2)+Date.now().toString(36)+'x1';ls('pid',v);return v})();
 let NAME=ls('nm')||(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.first_name)||'Игрок';NAME=String(NAME).replace(/[<>&"'`\\]/g,'').slice(0,16);
-let S=null,LB=[],DRAG=0,PEND=0,DIRTY=0,SQP=0,ERR='',ws,V='lobby',ready=0,TRY=0,DIAG='',TOFF=0,RZ=0,RV=0;
+let S=null,LB=[],DRAG=0,PEND=0,DIRTY=0,SQP=0,ERR='',ws,V='menu',ready=0,TRY=0,DIAG='',TOFF=0,RZ=0,RV=0,ME={bal:0,st:{},bonus:0,t0:0};
 let SQ=false,PM=ls('p_money')||'chips';try{SQ=localStorage.getItem('sq')==='1'}catch(e){}
 const CID=PID+Math.random().toString(36).slice(2,8);let TR=/[?&]http/.test(location.search)?'http':'ws',HQ=[],HB=0,OPENED=0;
 const net=o=>{if(TR=='ws'){if(ws&&ws.readyState==1)ws.send(JSON.stringify(o))}else{HQ.push(o);hflush()}};
 async function hflush(){if(HB)return;HB=1;while(HQ.length){const o=HQ.shift();try{await fetch('/api/send?cid='+CID,{method:'POST',body:JSON.stringify(o)})}catch(e){}}HB=0}
 async function hpoll(){for(;;){try{const r=await fetch('/api/poll?cid='+CID),a=await r.json();if(!ready){ready=1;ERR='';TRY=0;DIAG=''}a.forEach(onMsg)}catch(e){ready=0;DIAG='нет связи';render();await new Promise(r=>setTimeout(r,1500))}}}
-function onMsg(m){if(m.t=='hello?')return net(hello());if(m.t=='chat'){CHL.push(m);if($('chat').classList.contains('on'))chatDraw();else{CU++;render()}return}if(m.t=='chats'){CHL=m.list||[];return}
-  if(m.t=='lobby'){CHL=[];LB=m.tables;V='lobby';S=null;SQP=0;render()}
+function onMsg(m){if(m.t=='hello?')return net(hello());if(m.t=='me'){ME=m;ME.t0=Date.now();if(m.bk)ls('bk',JSON.stringify(m.bk));if(V!='table')render();return}if(m.t=='chat'){CHL.push(m);if($('chat').classList.contains('on'))chatDraw();else{CU++;render()}return}if(m.t=='chats'){CHL=m.list||[];return}
+  if(m.t=='lobby'){CHL=[];LB=m.tables;if(V=='table')V='lobby';S=null;SQP=0;render()}
   else if(m.t=='table'){if(!S||S.rid!=m.rid)SQP=0;const o=S&&S.rid==m.rid?S.ps[0].op:[0,0,0];m.ps[0].op=o;TOFF=m.now-Date.now();if(m.over)ls('bal',m.ps[0].chips);S=m;V='table';ERR='';render()}
   else if(m.t=='err'){ERR=m.m;render()}}
 function connect(){if(TR=='http'){hpoll();return}if(!location.host){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}try{ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/ws')}catch(e){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}
@@ -219,7 +226,7 @@ const nm=h=>{const s=h.map(c=>c.r);if(s.every(x=>x==6))return'Три шестё�
  const v=Math.max(...SU.map(u=>h.filter(c=>c.s==u).reduce((a,c)=>a+c.r,0))),d=v%10,e=v%100;return v+' '+(d==1&&e!=11?'очко':d>1&&d<5&&(e<12||e>14)?'очка':'очков')};
 const TOP='<button class="gear" onclick="openSet()">⋮</button>';
 const chatb=()=>`<button class="chatb" onclick="chatOpen(1)">💬${CU?`<i>${CU}</i>`:''}</button>`;
-function lobby(){return TOP+`<div class="card2"><h3>Трынька</h3>
+function lobby(){return TOP+BK+`<div class="card2"><h3>Играть</h3>
  <input id="nm" value="${NAME}" maxlength="16" placeholder="Ваше имя">
  ${ERR?`<div class="er">${ERR}</div>`:''}${ready?'':`<small>Подключаемся…${TRY>1?` (попытка ${TRY}${DIAG?', '+DIAG:''})`:''}</small>`}
  <h4>Столы</h4>${LB.length?LB.map(t=>`<div class="tbl"><div><b>${t.name}</b> ${t.lock?'🔒':''}<small>${t.n}/${t.max}${t.on?' · идёт игра':''}</small></div>
@@ -261,10 +268,37 @@ let CHL=[],CU=0;
 function chatDraw(){$('cm').innerHTML=CHL.slice(-30).map(m=>`<div class="cmsg"><b>${m.n}</b> ${m.tx}</div>`).join('');$('cm').scrollTop=1e6}
 function chatOpen(v){$('chat').classList.toggle('on',!!v);if(v){CU=0;chatDraw();render();setTimeout(()=>$('ci').focus(),60)}}
 function chatSend(){const v=$('ci').value.trim();if(v){net({t:'chat',text:v});$('ci').value=''}}
-const hello=()=>({t:'hello',pid:PID,name:NAME,bal:+ls('bal')||0,av:{e:ls('ave')||'',img:ls('avimg')||'',url:ls('avurl')||''}});
+const hello=()=>({t:'hello',pid:PID,name:NAME,bk:bkRead(),av:{e:ls('ave')||'',img:ls('avimg')||'',url:ls('avurl')||''}});
 function pkbox(){const v=S.pk;if(!v||S.over)return'';
  return`<div class="svb"><div class="sh">`+(v.you?`<b>У вас ${v.kind}!</b><small>Карты открыты всем. Что делаете? Делить: банк в конце раздачи поделите с победителем. Варить: свара начнётся, когда определится победитель.</small><div class="acts"><button class="w3" onclick="net({t:'pick',c:'split'})">Делить банк</button><button class="p w3" onclick="net({t:'pick',c:'cook'})">Варить</button></div>`
   :`<b>${v.who}: ${v.kind}</b><small>Игрок открыл карты и решает: делить банк или варить.</small>`)+`</div></div>`}
+const ACH=[['🎴','Первая раздача','Сыграйте раздачу',s=>s.g||0,1],['🥇','Первая победа','Выиграйте раздачу',s=>s.w||0,1],['🏅','Победитель','Выиграйте 10 раздач',s=>s.w||0,10],['🎖️','Ветеран','Сыграйте 100 раздач',s=>s.g||0,100],
+ ['🅰️','Три туза','Получите трёх тузов (33 очка)',s=>s.aaa||0,1],['6️⃣','Три шестёрки','Получите три шестёрки (36 очков)',s=>s.s666||0,1],['🍀','Счастливая тройка','Получите три десятки или три семёрки',s=>s.sp||0,1],
+ ['🔥','Свара','Сыграйте свару',s=>s.sv||0,1],['⚔️','Победа в свару','Выиграйте свару',s=>s.svw||0,1],['💎','Крупный банк','Выиграйте банк от 1000',s=>s.big||0,1000],['💰','Богач','Накопите 5000 фишек',s=>s.mx||0,5000]];
+const achDone=()=>ACH.filter(a=>a[3](ME.st||{})>=a[4]).length;
+const BK='<button class="leave" onclick="V=\'menu\';render()">← Меню</button>';
+const bkRead=()=>{try{return JSON.parse(ls('bk')||'null')}catch(e){return null}};
+function setName(v){NAME=String(v).replace(/[<>&"'`\\]/g,'').trim().slice(0,16)||'Игрок';ls('nm',NAME);net({t:'name',name:NAME})}
+function menu(){return TOP+`<div class="menu"><h1>Трынька</h1><small>карточная игра за столом с друзьями</small>
+ <button class="mb p" onclick="V='lobby';render()">▶ Играть</button>
+ <button class="mb" onclick="V='profile';render()">👤 Профиль</button>
+ <button class="mb" onclick="V='ach';render()">🏆 Достижения<i>${achDone()}/${ACH.length}</i></button>
+ <button class="mb" onclick="V='bal';net({t:'me'});render()">💰 Баланс<i>${ME.bal}</i></button>
+ <button class="mb" onclick="openSet()">⚙️ Настройки</button>${ready?'':'<small>Подключаемся…</small>'}${ERR?`<div class="er">${ERR}</div>`:''}</div>`}
+function profile(){const s=ME.st||{},w=s.g?Math.round(100*(s.w||0)/s.g):0,cur=ls('avimg')||ls('avurl')||ls('ave')||'🙂';
+ return TOP+BK+`<div class="card2"><h3>Профиль</h3><div class="pav">${avh(cur)}</div>
+ <button onclick="openSet()">Сменить аватар</button><input id="pn" value="${NAME}" maxlength="16" placeholder="Ваше имя" onchange="setName(this.value)">
+ <h4>Статистика</h4><div class="stg"><div><b>${s.g||0}</b><small>раздач сыграно</small></div><div><b>${s.w||0}</b><small>побед (${w}%)</small></div>
+ <div><b>${s.sv||0}</b><small>свар сыграно</small></div><div><b>${s.svw||0}</b><small>побед в свару</small></div>
+ <div><b>${s.big||0}</b><small>крупнейший банк</small></div><div><b>${s.mx||0}</b><small>макс. баланс</small></div>
+ <div><b>${s.aaa||0}</b><small>три туза</small></div><div><b>${s.s666||0}</b><small>три шестёрки</small></div></div></div>`}
+function ach(){const st=ME.st||{};return TOP+BK+`<div class="card2"><h3>Достижения</h3><small>Открыто ${achDone()} из ${ACH.length}</small>`+
+ ACH.map(a=>{const v=a[3](st),p=Math.min(100,Math.round(100*v/a[4])),on=v>=a[4];return`<div class="ach ${on?'on':''}"><div class="ic">${a[0]}</div><div><b>${a[1]}</b><br><small>${a[2]}</small><div class="pb"><u style="width:${p}%"></u></div></div></div>`}).join('')+`</div>`}
+function balscr(){const left=Math.max(0,(ME.bonus||0)-(Date.now()-(ME.t0||0))),h=Math.floor(left/3600000),m=Math.floor(left%3600000/60000);
+ return TOP+BK+`<div class="card2"><h3>Баланс</h3><div class="bigbal">${ME.bal}</div><small style="text-align:center">фишек. Баланс общий для всех столов, выйдя из-за стола вы забираете фишки с собой.</small>
+ <button class="p" onclick="net({t:'bonus'})" ${left?'disabled':''}>${left?`Бонус дня через ${h} ч ${m} мин`:'Забрать бонус дня +500'}</button></div>`}
+const SCR={menu,lobby,profile,ach,bal:balscr};
+setInterval(()=>{if(V=='bal'&&ME.bonus)render()},30000);
 const SKIP={k:0};
 function svbox(){const v=S.sv;if(!v){SKIP.k=0;return''}if(S.over||SKIP.k==S.rid)return'';
  const b=(t,l,c)=>`<button class="${c||''} w3" onclick="${t}">${l}</button>`;let h;
@@ -290,7 +324,7 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk,al=act().le
  <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
  <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}`}
 function render(){if(DRAG){PEND=1;return}PEND=0;
- if(V=='lobby'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=lobby();return}
+ if(V!='table'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=(SCR[V]||menu)();return}
  el.innerHTML=!S.started?wait():game();bindAll()}
 ['felt','deck','back'].forEach(k=>document.body.dataset[k]=ls('p_'+k)||'');render();connect();setInterval(()=>net({t:'ping'}),20000);
 </script>
