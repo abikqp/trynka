@@ -262,16 +262,19 @@ function chatDraw(){$('cm').innerHTML=CHL.slice(-30).map(m=>`<div class="cmsg"><
 function chatOpen(v){$('chat').classList.toggle('on',!!v);if(v){CU=0;chatDraw();render();setTimeout(()=>$('ci').focus(),60)}}
 function chatSend(){const v=$('ci').value.trim();if(v){net({t:'chat',text:v});$('ci').value=''}}
 const hello=()=>({t:'hello',pid:PID,name:NAME,bal:+ls('bal')||0,av:{e:ls('ave')||'',img:ls('avimg')||'',url:ls('avurl')||''}});
+function pkbox(){const v=S.pk;if(!v||S.over)return'';
+ return`<div class="svb"><div class="sh">`+(v.you?`<b>У вас ${v.kind}!</b><small>Карты открыты всем. Что делаете? Делить: банк в конце раздачи поделите с победителем. Варить: свара начнётся, когда определится победитель.</small><div class="acts"><button class="w3" onclick="net({t:'pick',c:'split'})">Делить банк</button><button class="p w3" onclick="net({t:'pick',c:'cook'})">Варить</button></div>`
+  :`<b>${v.who}: ${v.kind}</b><small>Игрок открыл карты и решает: делить банк или варить.</small>`)+`</div></div>`}
 const SKIP={k:0};
 function svbox(){const v=S.sv;if(!v){SKIP.k=0;return''}if(S.over||SKIP.k==S.rid)return'';
  const b=(t,l,c)=>`<button class="${c||''} w3" onclick="${t}">${l}</button>`;let h;
  if(v.ph=='vote')h=v.you=='vote'?`<b>${v.from} предлагает свару</b><small>Новая раздача, банк (${v.bank}) остаётся. Нужно согласие всех игроков.</small><div class="acts">${b("net({t:'svar',ok:0})",'Против')}${b("net({t:'svar',ok:1})",'Согласен','p')}</div>`
   :v.you=='prop'?`<b>Вы предложили свару</b><small>Согласны: ${v.yes} из ${v.need}</small><div class="acts">${b("net({t:'svar',ok:0})",'Отменить')}</div>`
-  :`<b>Свара: ждём ответов</b><small>Согласны: ${v.yes} из ${v.need}</small>`;
+  :`<b>Свара: ждём ответов</b><small>Согласны: ${v.yes} из ${v.need}. Если все согласятся, выбывшие смогут войти за ${v.half} (нужно столько фишек).</small>`;
  else h=v.you=='join'?`<b>Свара! Войти в игру?</b><small>Вход: ${v.half} (банк ${v.bank} поровну на ${v.need} игр.).</small><div class="acts">${b("SKIP.k=S.rid;render()",'Пропустить')}${b("net({t:'sjoin'})",'Войти за '+v.half,'p')}</div>`
   :v.you=='joined'?`<b>Вы в свару</b><small>Сейчас будет новая раздача.</small>`:`<b>Свара</b><small>Идёт набор желающих, банк ${v.bank}.</small>`;
  return`<div class="svb"><div class="sh">${h}</div></div>`}
-function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in,al=act().length,pa=act(),pq=S.ps[pa[(pa.indexOf(0)+pa.length-1)%pa.length]]||m;
+function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk,al=act().length,pa=act(),pq=S.ps[pa[(pa.indexOf(0)+pa.length-1)%pa.length]]||m;
  const kk=[0,1,2].find(k=>!up(k)),all=allUp();
  const panel=SQP&&SQ&&!S.over&&m.in&&!m.fold&&!all?`<div class="sq"><button class="hide" onclick="SQP=0;render()">Скрыть</button><button class="op" onclick="openAll()">Открыть</button>
  <div class="sw3"><div class="pc" data-k="${kk}">${card(m.hand[kk],{big:1})}<div class="cv"><div class="c big b kb"></div><div class="fl"></div></div></div></div></div>`:'';
@@ -285,7 +288,7 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in,al=act().length,pa
  <button class="w2" onclick="RZ=1;RV=0;render()" ${mine&&rzr()[1]>S.bet?'':'disabled'}><b>Повысить</b><small>от ${S.bet+10}</small></button>
  <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
  <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
- <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al>=2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}`}
+ <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}`}
 function render(){if(DRAG){PEND=1;return}PEND=0;
  if(V=='lobby'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=lobby();return}
  el.innerHTML=!S.started?wait():game();bindAll()}

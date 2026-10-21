@@ -59,7 +59,7 @@ const cost=(t,s)=>s.blind?Math.ceil(t.bet/2):t.bet;
 const pay=(t,s,a)=>{a=Math.min(a,s.chips);s.chips-=a;s.put+=a;t.bank+=a};
 function view(t,pid){const n=t.ps.length,me=Math.max(0,seatOf(t,pid)),r=i=>(i-me+n)%n,ord=[...t.ps.keys()].sort((a,b)=>r(a)-r(b));
  return{t:'table',id:t.id,name:t.name,max:t.max,host:t.host==pid,started:t.started,end:!!t.end,rid:t.rid,over:t.over,bank:t.bank,bet:t.bet,
-  turn:r(t.turn),sv:svv(t,pid),dl:t.over||t.sv?0:(t.dl||0),now:Date.now(),msg:t.msg,old:t.old,rev:t.rev.map(r),
+  turn:r(t.turn),sv:svv(t,pid),dl:t.over||t.sv||t.pick?0:(t.dl||0),pk:pickvw(t,pid),now:Date.now(),msg:t.msg,old:t.old,rev:t.rev.map(r),
   ps:ord.map(i=>{const s=t.ps[i],show=s.in&&(t.rev.includes(i)||t.over&&!s.fold);
    return{n:s.name,av:s.av,chips:s.chips,put:s.put,in:s.in,fold:s.fold,blind:s.blind,hand:i==me||show?s.hand:(s.in?[0,0,0]:[])}})}}
 const push=t=>t.ps.forEach(s=>send(P.get(s.pid),view(t,s.pid)));
@@ -72,18 +72,25 @@ function round(t){clearTimeout(t.tm);t.sv=null;t.ps=t.ps.filter(s=>!s.gone);cons
  if(live.length<2){t.over=true;t.end=true;t.msg=live.length?`${live[0].name} выиграл игру!`:'Игра окончена.';t.turn=0;return push(t)}
  const d=deck();live.forEach(s=>{s.hand=[d.pop(),d.pop(),d.pop()]});t.bet=ANTE;live.forEach(s=>pay(t,s,ANTE));
  t.first=(t.first+1)%n;while(!ps[t.first].in)t.first=(t.first+1)%n;t.turn=t.first;
- t.over=false;t.msg='Ставки сделаны, карты розданы.';tick(t);push(t);pushLobby()}
-function finish(t,ws,hn){clearTimeout(t.tm);t.dl=0;const sh=Math.floor(t.bank/ws.length);
- ws.forEach((s,k)=>s.chips+=sh+(k==0?t.bank-sh*ws.length:0));t.over=true;t.overAt=Date.now();
- t.msg=ws.length>1?`Ничья (${hn}): банк ${t.bank} делят ${ws.map(s=>s.name).join(' и ')}.`:`${ws[0].name} забирает банк ${t.bank}${hn?` (${hn})`:''}.`;
+ t.over=false;t.msg='Ставки сделаны, карты розданы.';afterDeal(t);pushLobby()}
+const pickvw=(t,pid)=>t.pick&&t.ps[t.pick.i]?{who:t.ps[t.pick.i].name,you:t.ps[t.pick.i].pid==pid,kind:kind(t.ps[t.pick.i].hand)}:null;
+function finish(t,ws,hn){clearTimeout(t.tm);t.dl=0;
+ const ck=(t.cook||[]).map(pid=>t.ps.find(x=>x.pid==pid)).filter(x=>x&&!ws.includes(x)&&!x.gone);
+ if(ck.length){const part=[...ws,...ck];part.forEach(x=>{const i=t.ps.indexOf(x);if(!t.rev.includes(i))t.rev.push(i)});t.cook=[];t.split=[];
+  t.sv={ph:'vote',from:ws[0].pid,yes:new Set(),tm:null,auto:1,part:part.map(x=>x.pid),pre:`${ws[0].name} побеждает, но ${ck.map(x=>x.name).join(' и ')} варит. Свара! `};return startJoin(t)}
+ const sp=(t.split||[]).map(pid=>t.ps.find(x=>x.pid==pid)).filter(x=>x&&!ws.includes(x)),al=[...ws,...sp],sh=Math.floor(t.bank/al.length);
+ al.forEach((s,k)=>s.chips+=sh+(k==0?t.bank-sh*al.length:0));t.over=true;t.overAt=Date.now();
+ t.msg=sp.length?`${ws[0].name} побеждает${hn?` (${hn})`:''}, банк ${t.bank} делят: ${al.map(s=>s.name).join(' и ')}.`:ws.length>1?`Ничья (${hn}): банк ${t.bank} делят ${ws.map(s=>s.name).join(' и ')}.`:`${ws[0].name} забирает банк ${t.bank}${hn?` (${hn})`:''}.`;
  t.bank=0;t.ps.forEach(s=>{s.put=0;setBal(s.pid,s.chips)});push(t)}
 function showdown(t,ids){const m=Math.max(...ids.map(i=>score(t.ps[i].hand)));const w=ids.filter(i=>score(t.ps[i].hand)==m).map(i=>t.ps[i]);finish(t,w,nm(w[0].hand))}
-function act(t,s,a,amt){if(t.over||t.sv||t.ps[t.turn]!==s)return;const i=t.turn;t.old=t.msg;
+function act(t,s,a,amt){if(t.over||t.sv||t.pick||t.ps[t.turn]!==s)return;const i=t.turn;t.old=t.msg;
  if(a=='call'){const c=cost(t,s);pay(t,s,c);t.msg=`${s.name} ставит ${c}`}
  else if(a=='raise'){const cap=s.blind?s.chips*2:s.chips;let n=Math.min(Math.floor(+amt)||0,cap);if(n<=t.bet||(n<t.bet+ANTE&&n<cap))return;t.bet=n;const c=cost(t,s);pay(t,s,c);t.msg=`${s.name} повышает до ${t.bet}`}
  else if(a=='fold'){s.fold=true;t.msg=`${s.name} пасует`}
  else if(a=='show'){const l=alive(t);if(l.length<2)return;const q=l[(l.indexOf(i)+l.length-1)%l.length],o=t.ps[q];if(o.blind)return;
-  pay(t,s,cost(t,s));s.blind=false;t.rev.push(i,q);const lose=score(s.hand)>score(o.hand)?o:s;lose.fold=true;
+  pay(t,s,cost(t,s));s.blind=false;t.rev.push(i,q);const sa=score(s.hand),sb=score(o.hand);
+  if(sa==sb){t.msg=`${s.name} вскрывает: ${o.name}. Ничья (${nm(s.hand)}), свара!`;clearTimeout(t.tm);t.dl=0;t.sv={ph:'vote',from:s.pid,yes:new Set(),tm:null,auto:1};return startJoin(t)}
+  const lose=sa>sb?o:s;lose.fold=true;
   t.msg=`${s.name} вскрывает: ${o.name}. ${nm(s.hand)} против ${nm(o.hand)}, ${lose.name} выбывает.`}
  else return;
  const l=alive(t);if(l.length==1)return finish(t,[t.ps[l[0]]],t.rev.includes(l[0])?nm(t.ps[l[0]].hand):'');
@@ -91,19 +98,30 @@ function act(t,s,a,amt){if(t.over||t.sv||t.ps[t.turn]!==s)return;const i=t.turn;
 
 // ---- свара ----
 const isAlive=s=>s.in&&!s.fold;
-const canJoin=(t,s)=>t.sv&&t.sv.ph=='join'&&!isAlive(s)&&!s.gone&&s.chips>=t.sv.half&&!t.sv.joined.has(s.pid);
+const canJoin=(t,s)=>t.sv&&t.sv.ph=='join'&&(t.sv.part?!t.sv.part.includes(s.pid):!isAlive(s))&&!s.gone&&s.chips>=t.sv.half&&!t.sv.joined.has(s.pid);
 function svv(t,pid){const v=t.sv,s=t.ps[seatOf(t,pid)];if(!v||!s)return null;let you='watch';
  if(s.pid==v.from)you='prop';else if(v.joined&&v.joined.has(s.pid))you='joined';else if(isAlive(s)&&v.ph=='vote')you=v.yes.has(s.pid)?'voted':'vote';else if(canJoin(t,s))you='join';
  return{ph:v.ph,from:(t.ps.find(x=>x.pid==v.from)||{}).name,half:v.half||Math.ceil(t.bank/Math.max(1,alive(t).length)),yes:v.yes.size,need:alive(t).length,you,bank:t.bank}}
 function cancelSv(t,msg){if(!t.sv)return;clearTimeout(t.sv.tm);t.sv=null;t.svCool=Date.now()+15000;t.msg=msg;tick(t);push(t)}
-function startJoin(t){const v=t.sv;clearTimeout(v.tm);v.ph='join';v.half=Math.ceil(t.bank/Math.max(1,alive(t).length));v.joined=new Set();
- if(!t.ps.some(s=>canJoin(t,s)))return dealSvara(t);t.msg='Все согласны на свару. Желающие могут войти за '+v.half;v.tm=setTimeout(()=>dealSvara(t),12000);push(t)}
-function dealSvara(t){const v=t.sv;if(!v)return;clearTimeout(v.tm);const part=new Set([...alive(t).map(i=>t.ps[i].pid),...v.joined]);
+function startJoin(t){const v=t.sv;clearTimeout(v.tm);v.ph='join';v.half=Math.ceil(t.bank/Math.max(1,v.part?v.part.length:alive(t).length));v.joined=new Set();
+ if(!t.ps.some(s=>canJoin(t,s)))return dealSvara(t);t.msg=(v.pre||(v.auto?'Ничья, свара! ':'Все согласны на свару. '))+'Желающие могут войти за '+v.half;v.tm=setTimeout(()=>dealSvara(t),15000);push(t)}
+function dealSvara(t){const v=t.sv;if(!v)return;clearTimeout(v.tm);const part=new Set([...(v.part||alive(t).map(i=>t.ps[i].pid)),...v.joined]);
  const d=deck(),ps=t.ps,n=ps.length;ps.forEach(s=>{const k=part.has(s.pid);s.in=k;s.fold=false;s.blind=true;s.put=0;s.hand=k?[d.pop(),d.pop(),d.pop()]:[]});
  t.sv=null;t.bet=ANTE;t.rev=[];t.rid++;t.old='';t.first=(t.first+1)%n;while(!ps[t.first].in)t.first=(t.first+1)%n;t.turn=t.first;
- t.msg=`Свара! В банке ${t.bank}. Новая раздача.`;tick(t);push(t)}
+ t.msg=`Свара! В банке ${t.bank}. Новая раздача.`;t.pick=null;afterDeal(t)}
+
+// ---- три десятки / три семёрки: открыть карты и выбрать (делить банк или варить) ----
+const isSpecial=h=>h.length==3&&h.every(c=>c.r==h[0].r)&&(h[0].r==10||h[0].r==7);
+const kind=h=>h[0].r==10?'три десятки':'три семёрки';
+function afterDeal(t){t.split=[];t.cook=[];t.pq=t.ps.map((s,i)=>i).filter(i=>t.ps[i].in&&isSpecial(t.ps[i].hand));nextPick(t)}
+function nextPick(t){clearTimeout(t.pt);if(!t.pq.length){t.pick=null;tick(t);return push(t)}
+ const i=t.pq[0],s=t.ps[i];t.pick={i};if(!t.rev.includes(i))t.rev.push(i);s.blind=false;clearTimeout(t.tm);
+ t.msg=`${s.name}: ${kind(s.hand)}! Выбирает: делить банк или варить`;t.pt=setTimeout(()=>choose(t,s,'split'),20000);push(t)}
+function choose(t,s,c){if(!t.pick||t.ps[t.pick.i]!==s)return;clearTimeout(t.pt);t.pq.shift();
+ if(c=='cook'){t.cook.push(s.pid);t.msg=`${s.name} варит: свара начнётся, когда определится победитель`;return nextPick(t)}
+ t.split.push(s.pid);t.msg=`${s.name} делит банк с победителем`;nextPick(t)}
 function sit(t,p){t.ps.push({pid:p.pid,name:p.name,chips:bal(p.pid),in:false,fold:false,blind:true,hand:[],put:0,av:avOf(p)||AV[t.ps.length%8]});p.tid=t.id}
-function leave(t,p){if(t.sv)cancelSv(t,'Свара отменена');const i=seatOf(t,p.pid);p.tid=null;if(i<0)return;const s=t.ps[i],mid=t.started&&!t.over;setBal(s.pid,s.chips);
+function leave(t,p){if(t.sv)cancelSv(t,'Свара отменена');const i=seatOf(t,p.pid);p.tid=null;if(i<0)return;const s=t.ps[i],mid=t.started&&!t.over;setBal(s.pid,s.chips);if(t.pick&&t.ps[t.pick.i]===s)choose(t,s,'split');
  if(mid){s.gone=1;if(s.in&&!s.fold){if(t.ps[t.turn]===s)act(t,s,'fold');else{s.fold=true;const l=alive(t);if(l.length==1)finish(t,[t.ps[l[0]]],'');else push(t)}}}
  else t.ps.splice(i,1);
  const rest=t.ps.filter(x=>!x.gone);
@@ -131,7 +149,7 @@ function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
   if(t.end)t.ps.forEach(s=>{if(s.chips<ANTE)s.chips=1000;setBal(s.pid,s.chips)});t.started=true;t.end=false;t.first=-1;return round(t)}
  if(m.t=='next'){if(t.started&&t.over&&!t.end&&Date.now()-t.overAt>2000)round(t);return}
  if(m.t=='look'){const s=t.ps[seatOf(t,p.pid)];if(s&&s.in&&!s.fold&&!t.over&&s.blind){s.blind=false;push(t)}return}
- if(m.t=='svara'){const s=t.ps[seatOf(t,p.pid)];if(!s||!t.started||t.over||t.sv||!isAlive(s)||alive(t).length<2)return;
+ if(m.t=='svara'){const s=t.ps[seatOf(t,p.pid)];if(!s||!t.started||t.over||t.sv||t.pick||!isAlive(s)||alive(t).length!=2)return;
   if(Date.now()<(t.svCool||0))return send(p,{t:'err',m:'Подождите немного перед новой сварой'});
   clearTimeout(t.tm);t.dl=0;t.sv={ph:'vote',from:p.pid,yes:new Set([p.pid]),tm:setTimeout(()=>t.sv&&t.sv.ph=='vote'&&cancelSv(t,'Свара не состоялась: нет ответа'),20000)};
   t.msg=`${s.name} предлагает свару`;push(t);return}
@@ -142,6 +160,7 @@ function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
   t.msg=`${s.name} входит в свару за ${v.half}`;push(t);if(!t.ps.some(x=>canJoin(t,x)))dealSvara(t);return}
  if(m.t=='chat'){const tx=cl2(m.text);if(!tx||Date.now()-(p.lc||0)<500)return;p.lc=Date.now();t.chat=t.chat||[];t.chat.push({n:p.name,tx});if(t.chat.length>40)t.chat.shift();
   t.ps.forEach(s=>send(P.get(s.pid),{t:'chat',n:p.name,tx}));return}
+ if(m.t=='pick'){const s=t.ps[seatOf(t,p.pid)];if(s)choose(t,s,m.c=='cook'?'cook':'split');return}
  if(m.t=='act')act(t,t.ps[seatOf(t,p.pid)],String(m.a),m.amt)}
 function drop(c){const p=c.p;if(!p||p.c!==c)return;p.c=null;
  setTimeout(()=>{if(!p.c){const t=T.get(p.tid);if(t)leave(t,p);P.delete(p.pid)}},45000)}
