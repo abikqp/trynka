@@ -159,7 +159,7 @@ try{tg.ready();tg.expand();tg.setHeaderColor('#0b1110');tg.setBackgroundColor('#
 const MAXBET=160,SU=['♠','♥','♦','♣'],RL={11:'Т'};
 const el=document.getElementById('app'),$=id=>document.getElementById(id);
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}};
-const PID=ls('pid')||(()=>{const v=Math.random().toString(36).slice(2)+Date.now().toString(36)+'x1';ls('pid',v);return v})();
+let PID=ls('pid')||(()=>{const v=Math.random().toString(36).slice(2)+Date.now().toString(36)+'x1';ls('pid',v);return v})();
 let NAME=ls('nm')||(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.first_name)||'Игрок';NAME=String(NAME).replace(/[<>&"'`\\]/g,'').slice(0,16);
 let S=null,LB=[],DRAG=0,PEND=0,DIRTY=0,SQP=0,ERR='',ws,V='menu',ready=0,TRY=0,DIAG='',TOFF=0,RZ=0,RV=0,ME={bal:0,st:{},bonus:0,t0:0};
 let SQ=false,PM=ls('p_money')||'chips';try{SQ=localStorage.getItem('sq')==='1'}catch(e){}
@@ -167,7 +167,7 @@ const CID=PID+Math.random().toString(36).slice(2,8);let TR=/[?&]http/.test(locat
 const net=o=>{if(TR=='ws'){if(ws&&ws.readyState==1)ws.send(JSON.stringify(o))}else{HQ.push(o);hflush()}};
 async function hflush(){if(HB)return;HB=1;while(HQ.length){const o=HQ.shift();try{await fetch('/api/send?cid='+CID,{method:'POST',body:JSON.stringify(o)})}catch(e){}}HB=0}
 async function hpoll(){for(;;){try{const r=await fetch('/api/poll?cid='+CID),a=await r.json();if(!ready){ready=1;ERR='';TRY=0;DIAG=''}a.forEach(onMsg)}catch(e){ready=0;DIAG='нет связи';render();await new Promise(r=>setTimeout(r,1500))}}}
-function onMsg(m){if(m.t=='hello?')return net(hello());if(m.t=='me'){ME=m;ME.t0=Date.now();if(m.bk)ls('bk',JSON.stringify(m.bk));if(V!='table')render();return}if(m.t=='chat'){CHL.push(m);if($('chat').classList.contains('on'))chatDraw();else{CU++;render()}return}if(m.t=='chats'){CHL=m.list||[];return}
+function onMsg(m){if(m.t=='hello?')return net(hello());if(m.t=='top'){TOPL=m.list||[];RANK=m.rank||0;if(V=='top')render();return}if(m.t=='me'){ME=m;ME.t0=Date.now();if(m.bk){ls('bk',JSON.stringify(m.bk));cset('bk',JSON.stringify(m.bk))}if(V!='table')render();return}if(m.t=='chat'){CHL.push(m);if($('chat').classList.contains('on'))chatDraw();else{CU++;render()}return}if(m.t=='chats'){CHL=m.list||[];return}
   if(m.t=='lobby'){CHL=[];LB=m.tables;if(V=='table')V='lobby';S=null;SQP=0;render()}
   else if(m.t=='table'){if(!S||S.rid!=m.rid)SQP=0;const o=S&&S.rid==m.rid?S.ps[0].op:[0,0,0];m.ps[0].op=o;TOFF=m.now-Date.now();if(m.over)ls('bal',m.ps[0].chips);S=m;V='table';ERR='';render()}
   else if(m.t=='err'){ERR=m.m;render()}}
@@ -269,12 +269,24 @@ function chatDraw(){$('cm').innerHTML=CHL.slice(-30).map(m=>`<div class="cmsg"><
 function chatOpen(v){$('chat').classList.toggle('on',!!v);if(v){CU=0;chatDraw();render();setTimeout(()=>$('ci').focus(),60)}}
 function chatSend(){const v=$('ci').value.trim();if(v){net({t:'chat',text:v});$('ci').value=''}}
 const hello=()=>({t:'hello',pid:PID,name:NAME,bk:bkRead(),av:{e:ls('ave')||'',img:ls('avimg')||'',url:ls('avurl')||''}});
+let TOPL=[],RANK=0;
+function topscr(){return TOP+BK+`<div class="card2"><h3>Рейтинг</h3><small>Чистый выигрыш с учётом проигрышей${RANK?` · ваше место: ${RANK}`:''}</small>`+
+ (TOPL.length?TOPL.map((x,i)=>`<div class="ach ${x.me?'on':''}"><div class="ic">${['🥇','🥈','🥉'][i]||i+1}</div><div style="flex:1"><b>${x.n}</b><br><small>раздач ${x.g}, побед ${x.w}</small></div><b style="color:${x.net>=0?'#7bd957':'#ff7a6b'}">${x.net>0?'+':''}${x.net}</b></div>`).join(''):'<small>Пока никто не сыграл ни одной раздачи.</small>')+`</div>`}
+const sheet=h=>`<div class="svb"><div class="sh">${h}</div></div>`;
+function aibox(){const v=S.ai;if(!v||S.over||S.sp||S.sv||S.ti)return'';
+ return sheet(v.you?`<b>${v.who} ставит всё!</b><small>Выберите: вскрыть, предложить делить банк, свару или скинуть.</small><div class="acts"><button class="w3 p" onclick="go('show')">Вскрыть</button><button class="w3" onclick="net({t:'split'})">Делить банк</button><button class="w3" onclick="net({t:'svara'})">Свара</button><button class="w3" onclick="go('fold')">Скинуть</button></div>`
+  :`<b>Вы поставили всё</b><small>Ждём решения соперника.</small>`)}
+function spbox(){const v=S.sp;if(!v||S.over)return'';
+ return sheet(v.you?`<b>${v.from} предлагает делить банк</b><small>Банк делится поровну, раздача заканчивается.</small><div class="acts"><button class="w3" onclick="net({t:'spr',ok:0})">Против</button><button class="w3 p" onclick="net({t:'spr',ok:1})">Согласен</button></div>`:`<b>Предложено делить банк</b><small>Ждём ответа.</small>`)}
+function tibox(){const v=S.ti;if(!v||S.over)return'';
+ return sheet(v.you&&!v.voted?`<b>Ничья по очкам!</b><small>Выберите: делить банк или свара. Свара начнётся, если хотя бы один выберет её.</small><div class="acts"><button class="w3" onclick="net({t:'tie',c:'split'})">Делить банк</button><button class="w3 p" onclick="net({t:'tie',c:'svara'})">Свара</button></div>`:`<b>Ничья по очкам</b><small>Игроки выбирают: делить банк или свара.</small>`)}
 function pkbox(){const v=S.pk;if(!v||S.over)return'';
  return`<div class="svb"><div class="sh">`+(v.you?`<b>У вас ${v.kind}!</b><small>Карты открыты всем. Что делаете? Делить: банк в конце раздачи поделите с победителем. Варить: свара начнётся, когда определится победитель.</small><div class="acts"><button class="w3" onclick="net({t:'pick',c:'split'})">Делить банк</button><button class="p w3" onclick="net({t:'pick',c:'cook'})">Варить</button></div>`
   :`<b>${v.who}: ${v.kind}</b><small>Игрок открыл карты и решает: делить банк или варить.</small>`)+`</div></div>`}
 const ACH=[['🎴','Первая раздача','Сыграйте раздачу',s=>s.g||0,1],['🥇','Первая победа','Выиграйте раздачу',s=>s.w||0,1],['🏅','Победитель','Выиграйте 10 раздач',s=>s.w||0,10],['🎖️','Ветеран','Сыграйте 100 раздач',s=>s.g||0,100],
  ['🅰️','Три туза','Получите трёх тузов (33 очка)',s=>s.aaa||0,1],['6️⃣','Три шестёрки','Получите три шестёрки (36 очков)',s=>s.s666||0,1],['🍀','Счастливая тройка','Получите три десятки или три семёрки',s=>s.sp||0,1],
- ['🔥','Свара','Сыграйте свару',s=>s.sv||0,1],['⚔️','Победа в свару','Выиграйте свару',s=>s.svw||0,1],['💎','Крупный банк','Выиграйте банк от 1000',s=>s.big||0,1000],['💰','Богач','Накопите 5000 фишек',s=>s.mx||0,5000]];
+ ['🔥','Свара','Сыграйте свару',s=>s.sv||0,1],['⚔️','Победа в свару','Выиграйте свару',s=>s.svw||0,1],['💎','Крупный банк','Выиграйте банк от 1000',s=>s.big||0,1000],['💰','Богач','Накопите 5000 фишек',s=>s.mx||0,5000],
+ ['🎯','Двадцать одно','Получайте 21 очко (цель: 10 раз)',s=>s.p21||0,10],['👑','Туз, десятка, девятка','Получите туз+10+9 одной масти (цель: 5 раз)',s=>s.a109||0,5]];
 const achDone=()=>ACH.filter(a=>a[3](ME.st||{})>=a[4]).length;
 const BK='<button class="leave" onclick="V=\'menu\';render()">← Меню</button>';
 const bkRead=()=>{try{return JSON.parse(ls('bk')||'null')}catch(e){return null}};
@@ -283,6 +295,7 @@ function menu(){return TOP+`<div class="menu"><h1>Трынька</h1><small>ка
  <button class="mb p" onclick="V='lobby';render()">▶ Играть</button>
  <button class="mb" onclick="V='profile';render()">👤 Профиль</button>
  <button class="mb" onclick="V='ach';render()">🏆 Достижения<i>${achDone()}/${ACH.length}</i></button>
+ <button class="mb" onclick="V='top';net({t:'top'});render()">📊 Рейтинг</button>
  <button class="mb" onclick="V='bal';net({t:'me'});render()">💰 Баланс<i>${ME.bal}</i></button>
  <button class="mb" onclick="openSet()">⚙️ Настройки</button>${ready?'':'<small>Подключаемся…</small>'}${ERR?`<div class="er">${ERR}</div>`:''}</div>`}
 function profile(){const s=ME.st||{},w=s.g?Math.round(100*(s.w||0)/s.g):0,cur=ls('avimg')||ls('avurl')||ls('ave')||'🙂';
@@ -291,14 +304,20 @@ function profile(){const s=ME.st||{},w=s.g?Math.round(100*(s.w||0)/s.g):0,cur=ls
  <h4>Статистика</h4><div class="stg"><div><b>${s.g||0}</b><small>раздач сыграно</small></div><div><b>${s.w||0}</b><small>побед (${w}%)</small></div>
  <div><b>${s.sv||0}</b><small>свар сыграно</small></div><div><b>${s.svw||0}</b><small>побед в свару</small></div>
  <div><b>${s.big||0}</b><small>крупнейший банк</small></div><div><b>${s.mx||0}</b><small>макс. баланс</small></div>
- <div><b>${s.aaa||0}</b><small>три туза</small></div><div><b>${s.s666||0}</b><small>три шестёрки</small></div></div></div>`}
+ <div><b>${s.aaa||0}</b><small>три туза</small></div><div><b>${s.s666||0}</b><small>три шестёрки</small></div>
+ <div><b>${s.p21||0}</b><small>раз по 21 очку</small></div><div><b>${s.a109||0}</b><small>туз+10+9 одной масти</small></div><div style="grid-column:span 2"><b>${(s.net||0)>0?'+':''}${s.net||0}</b><small>чистый выигрыш за всё время</small></div></div></div>`}
 function ach(){const st=ME.st||{};return TOP+BK+`<div class="card2"><h3>Достижения</h3><small>Открыто ${achDone()} из ${ACH.length}</small>`+
  ACH.map(a=>{const v=a[3](st),p=Math.min(100,Math.round(100*v/a[4])),on=v>=a[4];return`<div class="ach ${on?'on':''}"><div class="ic">${a[0]}</div><div><b>${a[1]}</b><br><small>${a[2]}</small><div class="pb"><u style="width:${p}%"></u></div></div></div>`}).join('')+`</div>`}
 function balscr(){const left=Math.max(0,(ME.bonus||0)-(Date.now()-(ME.t0||0))),h=Math.floor(left/3600000),m=Math.floor(left%3600000/60000);
  return TOP+BK+`<div class="card2"><h3>Баланс</h3><div class="bigbal">${ME.bal}</div><small style="text-align:center">фишек. Баланс общий для всех столов, выйдя из-за стола вы забираете фишки с собой.</small>
- <button class="p" onclick="net({t:'bonus'})" ${left?'disabled':''}>${left?`Бонус дня через ${h} ч ${m} мин`:'Забрать бонус дня +500'}</button></div>`}
-const SCR={menu,lobby,profile,ach,bal:balscr};
+ <button class="p" onclick="net({t:'bonus'})" ${left?'disabled':''}>${left?`Бонус дня через ${h} ч ${m} мин`:'Забрать бонус дня +500'}</button>${ME.ks===false?'<div class="er">На сервере не задан SECRET: после перезапуска сервера баланс и достижения сбросятся. Добавьте SECRET в настройках Render.</div>':''}<small style="text-align:center">${ls('bk')?'Копия данных сохранена':'Копия данных ещё не получена'}</small></div>`}
+const SCR={menu,lobby,profile,ach,bal:balscr,top:topscr};
 setInterval(()=>{if(V=='bal'&&ME.bonus)render()},30000);
+const CS=tg&&tg.initData&&tg.CloudStorage?tg.CloudStorage:null;
+const cget=k=>new Promise(r=>{if(!CS)return r('');let d=0;const f=v=>{if(!d){d=1;r(v||'')}};try{CS.getItem(k,(e,v)=>f(e?'':v))}catch(e){f('')}setTimeout(()=>f(''),2500)});
+const cset=(k,v)=>{try{CS&&CS.setItem(k,v)}catch(e){}};
+async function init(){const cp=await cget('pid');if(cp&&cp.length>=8&&cp.length<=60){PID=cp;ls('pid',cp)}else cset('pid',PID);
+ const cb=await cget('bk');if(cb&&!ls('bk'))ls('bk',cb)}
 const SKIP={k:0};
 function svbox(){const v=S.sv;if(!v){SKIP.k=0;return''}if(S.over||SKIP.k==S.rid)return'';
  const b=(t,l,c)=>`<button class="${c||''} w3" onclick="${t}">${l}</button>`;let h;
@@ -322,11 +341,11 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk,al=act().le
  <button class="w2" onclick="RZ=1;RV=0;render()" ${mine&&rzr()[1]>S.bet?'':'disabled'}><b>Повысить</b><small>от ${S.bet+10}</small></button>
  <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
  <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
- <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}`}
+ <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}${aibox()}${spbox()}${tibox()}`}
 function render(){if(DRAG){PEND=1;return}PEND=0;
  if(V!='table'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=(SCR[V]||menu)();return}
  el.innerHTML=!S.started?wait():game();bindAll()}
-['felt','deck','back'].forEach(k=>document.body.dataset[k]=ls('p_'+k)||'');render();connect();setInterval(()=>net({t:'ping'}),20000);
+['felt','deck','back'].forEach(k=>document.body.dataset[k]=ls('p_'+k)||'');render();init().then(connect);setInterval(()=>net({t:'ping'}),20000);
 </script>
 </body>
 </html>
