@@ -216,19 +216,19 @@ const go=a=>{if(S&&!S.over&&S.turn==0)net({t:'act',a})};
 const up=k=>{const m=S.ps[0];return m.op[k]||S.over||S.rev.includes(0)||m.fold};
 const allUp=()=>!S.ps[0].in||[0,1,2].every(up);
 function openAll(){const m=S.ps[0];if(m.blind)net({t:'look'});m.blind=false;m.op.fill(1);SQP=0;render()}
-function look(){const m=S.ps[0];if(S.over||!m.in||m.fold||m.dark||allUp())return;if(SQ)SQP=1,render();else openAll()}
+function look(){const m=S.ps[0];if(S.over||!m.in||m.fold||allUp())return;if(SQ)SQP=1,render();else openAll()}
 function setSQ(v){SQ=v;try{localStorage.setItem('sq',v?'1':'0')}catch(e){}SQP=0;render()}
 function openSet(){avUI();['felt','deck','back','money'].forEach(k=>$('p'+k).value=ls('p_'+k)||(k=='money'?'chips':''));$('sqc').checked=SQ;$('set').classList.add('on')}
 const bet=p=>`<div class="bw" data-i="${S.ps.indexOf(p)}">${money(p.cb)}</div>`;
 function seat(i){const n=S.ps.length,p=S.ps[i],h=!i,t=S.turn==i&&!S.over&&p.in,show=p.in&&(S.rev.includes(i)||S.over&&!p.fold),all=allUp();
  const th=(90+360*i/n)*Math.PI/180,x=50+40*Math.cos(th),y=50+36*Math.sin(th),k=n<5?1:n<7?.9:.78;
- const bd=!p.in?(S.started?'ждёт':''):p.fold?'Фолд':p.dark?'не глядя +1':p.blind?'не глядя':'';
+ const bd=!p.in?(S.started?'ждёт':''):p.fold?'Фолд':p.dark?'в тёмную +1':p.blind?'не глядя':'';
  const cs=p.in&&(h||!p.fold||show)?p.hand.map((c,j)=>sc(c,h?!up(j):!show)).join(''):'';
  return`<div class="seat ${h?'me':''} ${t?'turn':''} ${!h&&(!p.in||p.fold&&!show)?'dim':''}" style="left:${x}%;top:${y}%;transform:translate(-50%,-50%) scale(${k})">
  <div class="av">${avh(p.av)}</div>
  <div class="cs" ${h&&p.in&&!p.fold&&!S.over&&!all?'onclick="look()"':''}>${cs}</div>
  <div class="np"><b>${p.n}${h&&bd?' · '+bd:''}</b><span>${p.chips}</span>${bd&&!h?`<i class="st ${p.fold?'f':''}">${bd}</i>`:''}${t?`<u class="bar${h?'':' bot'}"></u>`:''}</div>${t&&S.dl?`<div class="tm">${tl()}</div>`:''}${bet(p)}
- ${h&&p.in&&!p.fold?`<div class="hn">${p.dark&&!S.over?'играете не глядя (+1 очко)':all?nm(p.hand)+(p.dark?' +1':''):S.over?'':'нажмите на карты'}</div>`:''}</div>`}
+ ${h&&p.in&&!p.fold?`<div class="hn">${all?nm(p.hand)+(p.dark?' +1':''):S.over?'':(p.dark?'в тёмную (+1 очко), нажмите на карты':'нажмите на карты')}</div>`:''}</div>`}
 const nm=h=>{const s=h.map(c=>c.r);if(s.every(x=>x==6))return'Три шестёрки · 36';if(s.every(x=>x==11))return'Три туза · 33';
  const v=Math.max(...SU.map(u=>h.filter(c=>c.s==u).reduce((a,c)=>a+c.r,0))),d=v%10,e=v%100;return v+' '+(d==1&&e!=11?'очко':d>1&&d<5&&(e<12||e>14)?'очка':'очков')};
 const TOP='<button class="gear" onclick="openSet()">⋮</button>';
@@ -288,7 +288,7 @@ function spbox(){const v=S.sp;if(!v||S.over)return'';
 function tibox(){const v=S.ti;if(!v||S.over)return'';
  return sheet(v.you&&!v.voted?`<b>Ничья по очкам!</b><small>Выберите: делить банк или свара. Свара начнётся, если хотя бы один выберет её.</small><div class="acts"><button class="w3" onclick="net({t:'tie',c:'split'})">Делить банк</button><button class="w3 p" onclick="net({t:'tie',c:'svara'})">Свара</button></div>`:`<b>Ничья по очкам</b><small>Игроки выбирают: делить банк или свара.</small>`)}
 function darkbox(){const v=S.dk;if(!v||S.over)return'';
- return`<div class="svb"><div class="sh">`+(v.you?`<b>Играть не глядя?</b><small>Если «Да», к вашим очкам добавится 1, но смотреть карты в этой раздаче нельзя. Ставки при этом вдвое дешевле.</small><div class="acts"><button class="w3" onclick="net({t:'dark',ok:0})">Нет</button><button class="p w3" onclick="net({t:'dark',ok:1})">Да</button></div>`:`<b>${v.who} решает: играть не глядя?</b>`)+`</div></div>`}
+ return`<div class="svb"><div class="sh">`+(v.you?`<b>Играть в тёмную?</b><small>Если «Да»: к вашим очкам добавится 1, вы сразу делаете ставку и пропускаете один ход. Карты можно смотреть в любой момент, +1 остаётся.</small><div class="acts"><button class="w3" onclick="net({t:'dark',ok:0})">Нет</button><button class="p w3" onclick="net({t:'dark',ok:1})">Да</button></div>`:`<b>${v.who} решает: играть в тёмную?</b>`)+`</div></div>`}
 function cutbox(){const c=S.cut;if(!c)return'';return`<div class="cutb"><div class="sh"><b>Кто ходит первым?</b><div class="cuts">${c.map(x=>`<div class="${x.w?'w':''}">${sc(x.c,false)}<small>${x.n}</small></div>`).join('')}</div><small>Старшая карта ходит первой</small></div></div>`}
 let PSW=0;
 function pkbox(){const v=S.pk;if(!v||S.over)return'';
@@ -350,7 +350,7 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk&&!S.dk,al=a
  <button class="w2" onclick="go('fold')" ${mine?'':'disabled'}><b>Пас</b></button>
  <button class="p w2" onclick="go('call')" ${mine?'':'disabled'}><b>Поставить</b><small>${cost(m)}</small></button>
  <button class="w2" onclick="RZ=1;RV=0;render()" ${mine&&rzr()[1]>S.bet?'':'disabled'}><b>Повысить</b><small>от ${S.bet+10}</small></button>
- <button class="w2" onclick="look()" ${!S.over&&m.in&&!all&&!m.dark?'':'disabled'}><b>Смотреть</b></button>
+ <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
  <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
  <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}${aibox()}${spbox()}${tibox()}${darkbox()}${cutbox()}`}
 function render(){if(DRAG){PEND=1;return}PEND=0;

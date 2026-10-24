@@ -77,7 +77,7 @@ function view(t,pid){const n=t.ps.length,me=Math.max(0,seatOf(t,pid)),r=i=>(i-me
   ai:t.ai&&alive(t).length==2?{who:(t.ps.find(x=>x.pid==t.ai)||{}).name,you:pid!=t.ai&&!!t.ps[me]&&isAlive(t.ps[me])}:null,
   sp:t.sp?{from:(t.ps.find(x=>x.pid==t.sp.from)||{}).name,you:t.sp.to==pid}:null,ti:t.tie?{you:t.tie.pids.includes(pid),voted:!!t.tie.ch[pid]}:null,
   ps:ord.map(i=>{const s=t.ps[i],show=s.in&&(vis.includes(i)||t.over&&!s.fold);
-   return{n:s.name,av:s.av,chips:s.chips,put:s.put,cb:s.cb||0,in:s.in,fold:s.fold,blind:s.blind,dark:!!s.dark,hand:(i==me&&(!s.dark||t.over||s.fold)||show)?s.hand:(s.in?[0,0,0]:[])}})}}
+   return{n:s.name,av:s.av,chips:s.chips,put:s.put,cb:s.cb||0,in:s.in,fold:s.fold,blind:s.blind,dark:!!s.dark,hand:(i==me||show)?s.hand:(s.in?[0,0,0]:[])}})}}
 const push=t=>t.ps.forEach(s=>send(P.get(s.pid),view(t,s.pid)));
 const TURN=20000;
 const tick=t=>{clearTimeout(t.tm);t.dl=Date.now()+TURN;t.tm=setTimeout(()=>{const s=t.ps[t.turn];if(t.started&&!t.over&&!t.sv&&s)act(t,s,'fold')},TURN)};
@@ -116,7 +116,9 @@ function act(t,s,a,amt){if(t.over||t.sv||t.pick||t.dk||t.cut||t.tie||t.sp||t.ps[
  if(a=='call')t.circ.add(i);else if(a=='raise')t.circ=new Set([i]);
  const l=alive(t);if(l.length==1)return finish(t,[t.ps[l[0]]],t.rev.includes(l[0])?nm(t.ps[l[0]].hand):'');
  if(l.every(k=>t.circ.has(k))){t.ps.forEach(x=>x.cb=0);t.circ=new Set();t.swept=(t.swept||0)+1}
- do{t.turn=(t.turn+1)%t.ps.length}while(!(t.ps[t.turn].in&&!t.ps[t.turn].fold));tick(t);push(t)}
+ do{t.turn=(t.turn+1)%t.ps.length}while(!(t.ps[t.turn].in&&!t.ps[t.turn].fold));
+ if(t.ps[t.turn].skip){t.ps[t.turn].skip=false;do{t.turn=(t.turn+1)%t.ps.length}while(!(t.ps[t.turn].in&&!t.ps[t.turn].fold))}
+ tick(t);push(t)}
 
 // ---- свара ----
 const isAlive=s=>s.in&&!s.fold;
@@ -135,7 +137,7 @@ function dealSvara(t){const v=t.sv;if(!v)return;clearTimeout(v.tm);const part=ne
 // ---- три десятки / три семёрки: открыть карты и выбрать (делить банк или варить) ----
 const isSpecial=h=>h.length==3&&h.every(c=>c.r==h[0].r)&&(h[0].r==10||h[0].r==7);
 const kind=h=>h[0].r==10?'три десятки':'три семёрки';
-function afterDeal(t){t.split=[];t.cook=[];t.circ=new Set();t.dk=null;t.ps.forEach(s=>s.dark=false);t.ps.forEach(s=>{if(s.in&&s.hand.length){const r=s.hand.map(c=>c.r);if(r.every(x=>x==11))stat(s.pid,'aaa');else if(r.every(x=>x==6))stat(s.pid,'s666');else if(isSpecial(s.hand))stat(s.pid,'sp');if(score(s.hand)==21)stat(s.pid,'p21');if(is109(s.hand))stat(s.pid,'a109')}});t.pq=t.ps.map((s,i)=>i).filter(i=>t.ps[i].in&&isSpecial(t.ps[i].hand));nextPick(t)}
+function afterDeal(t){t.split=[];t.cook=[];t.circ=new Set();t.dk=null;t.ps.forEach(s=>{s.dark=false;s.skip=false});t.ps.forEach(s=>{if(s.in&&s.hand.length){const r=s.hand.map(c=>c.r);if(r.every(x=>x==11))stat(s.pid,'aaa');else if(r.every(x=>x==6))stat(s.pid,'s666');else if(isSpecial(s.hand))stat(s.pid,'sp');if(score(s.hand)==21)stat(s.pid,'p21');if(is109(s.hand))stat(s.pid,'a109')}});t.pq=t.ps.map((s,i)=>i).filter(i=>t.ps[i].in&&isSpecial(t.ps[i].hand));nextPick(t)}
 function nextPick(t){clearTimeout(t.pt);if(!t.pq.length){t.pick=null;return darkAsk(t)}
  const i=t.pq[0],s=t.ps[i];t.pick={i};if(!t.rev.includes(i))t.rev.push(i);s.blind=false;clearTimeout(t.tm);
  t.msg=`${s.name}: ${kind(s.hand)}! Выбирает: делить банк или варить`;t.pt=setTimeout(()=>choose(t,s,'split'),20000);push(t)}
@@ -152,9 +154,9 @@ function startCut(t){clearTimeout(t.ct);const ps=t.ps.filter(s=>!s.gone),d=deck(
  t.ct=setTimeout(()=>{t.cut=null;round(t)},4500)}
 function darkAsk(t){clearTimeout(t.dt);const ps=t.ps;let k=t.turn;do{k=(k+1)%ps.length}while(!ps[k].in&&k!=t.turn);
  if(k==t.turn||!ps[k].in){t.dk=null;tick(t);return push(t)}
- t.dk={i:k};clearTimeout(t.tm);t.dl=0;t.msg=`${ps[k].name} решает: играть не глядя?`;t.dt=setTimeout(()=>darkPick(t,ps[k],false),20000);push(t)}
+ t.dk={i:k};clearTimeout(t.tm);t.dl=0;t.msg=`${ps[k].name} решает: играть в тёмную?`;t.dt=setTimeout(()=>darkPick(t,ps[k],false),20000);push(t)}
 function darkPick(t,s,yes){if(!t.dk||t.ps[t.dk.i]!==s)return;clearTimeout(t.dt);t.dk=null;
- if(yes){s.dark=true;t.msg=`${s.name} играет не глядя: +1 очко`}else t.msg=`${s.name} будет смотреть карты`;tick(t);push(t)}
+ if(yes){s.dark=true;const c=cost(t,s);pay(t,s,c);t.circ.add(t.ps.indexOf(s));s.skip=true;t.msg=`${s.name} играет в тёмную: +1 очко, ставка ${c}, пропускает ход`}else t.msg=`${s.name} не темнит`;tick(t);push(t)}
 
 // ---- рейтинг, ничья, ставка всё ----
 const is109=h=>h.every(c=>c.s==h[0].s)&&h.map(c=>c.r).sort((a,b)=>a-b).join()=='9,10,11';
@@ -197,7 +199,7 @@ function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
   if(t.end)t.ps.forEach(s=>{if(s.chips<ANTE)s.chips=1000;setBal(s.pid,s.chips)});t.started=true;t.end=false;t.first=-1;t.lastWin=null;return startCut(t)}
  if(m.t=='next'){if(t.started&&t.over&&!t.end&&!t.cut&&Date.now()-t.overAt>2000)round(t);return}
  if(m.t=='dark'){const s=t.ps[seatOf(t,p.pid)];if(s)darkPick(t,s,!!m.ok);return}
- if(m.t=='look'){const s=t.ps[seatOf(t,p.pid)];if(s&&s.in&&!s.fold&&!t.over&&s.blind&&!s.dark){s.blind=false;push(t)}return}
+ if(m.t=='look'){const s=t.ps[seatOf(t,p.pid)];if(s&&s.in&&!s.fold&&!t.over&&s.blind){s.blind=false;push(t)}return}
  if(m.t=='svara'){const s=t.ps[seatOf(t,p.pid)];if(!s||!t.started||t.over||t.sv||t.pick||t.dk||t.tie||t.sp||!isAlive(s)||alive(t).length!=2)return;
   if(Date.now()<(t.svCool||0))return send(p,{t:'err',m:'Подождите немного перед новой сварой'});
   clearTimeout(t.tm);t.dl=0;t.sv={ph:'vote',from:p.pid,yes:new Set([p.pid]),tm:setTimeout(()=>t.sv&&t.sv.ph=='vote'&&cancelSv(t,'Свара не состоялась: нет ответа'),20000)};
