@@ -72,7 +72,7 @@ const cost=(t,s)=>s.blind?Math.ceil(t.bet/2):t.bet;
 const pay=(t,s,a)=>{a=Math.min(a,s.chips);s.chips-=a;s.put+=a;s.cb=(s.cb||0)+a;t.bank+=a};
 function view(t,pid){const n=t.ps.length,me=Math.max(0,seatOf(t,pid)),r=i=>(i-me+n)%n,ord=[...t.ps.keys()].sort((a,b)=>r(a)-r(b));
  const vis=[...new Set([...t.rev,...(t.priv||[]).filter(p=>p.includes(me)).flat()])];
- return{t:'table',cut:t.cut?t.cut.cards.map(x=>({n:x.name,c:x.c,w:x.pid==t.cut.win})):null,dk:t.dk&&t.ps[t.dk.i]?{who:t.ps[t.dk.i].name,you:t.ps[t.dk.i].pid==pid}:null,sw:t.swept||0,pile:t.bank-t.ps.reduce((a,x)=>a+(x.cb||0),0),id:t.id,name:t.name,max:t.max,host:t.host==pid,started:t.started,end:!!t.end,rid:t.rid,over:t.over,bank:t.bank,bet:t.bet,
+ return{t:'table',cut:t.cut?t.cut.cards.map(x=>({n:x.name,c:x.c,w:t.cut.top.includes(x.pid)})):null,cutn:t.cut?t.cut.note:'',dk:t.dk&&t.ps[t.dk.i]?{who:t.ps[t.dk.i].name,you:t.ps[t.dk.i].pid==pid}:null,sw:t.swept||0,pile:t.bank-t.ps.reduce((a,x)=>a+(x.cb||0),0),id:t.id,name:t.name,max:t.max,host:t.host==pid,started:t.started,end:!!t.end,rid:t.rid,over:t.over,bank:t.bank,bet:t.bet,
   turn:r(t.turn),sv:svv(t,pid),dl:t.over||t.sv||t.pick||t.tie||t.sp?0:(t.dl||0),pk:pickvw(t,pid),now:Date.now(),msg:t.msg,old:t.old,rev:vis.map(r),
   ai:t.ai&&alive(t).length==2?{who:(t.ps.find(x=>x.pid==t.ai)||{}).name,you:pid!=t.ai&&!!t.ps[me]&&isAlive(t.ps[me])}:null,
   sp:t.sp?{from:(t.ps.find(x=>x.pid==t.sp.from)||{}).name,you:t.sp.to==pid}:null,ti:t.tie?{you:t.tie.pids.includes(pid),voted:!!t.tie.ch[pid]}:null,
@@ -151,10 +151,13 @@ function choose(t,s,c){if(!t.pick||t.ps[t.pick.i]!==s)return;clearTimeout(t.pt);
 
 // ---- жеребьёвка первой карты, игра не глядя (+1 очко) ----
 const scp=s=>score(s.hand)+(s.dark?1:0);
-function startCut(t){clearTimeout(t.ct);const ps=t.ps.filter(s=>!s.gone),d=deck();t.cut={cards:ps.map(s=>({pid:s.pid,name:s.name,c:d.pop()}))};
- const rk=x=>x.c.r*4+(3-SU.indexOf(x.c.s));const w=[...t.cut.cards].sort((a,b)=>rk(b)-rk(a))[0];
- t.cut.win=w.pid;t.lastWin=w.pid;t.over=true;t.bank=0;t.msg=`${w.name} вытянул старшую карту и ходит первым`;push(t);
- t.ct=setTimeout(()=>{t.cut=null;round(t)},4500)}
+function startCut(t){clearTimeout(t.ct);t.lastWin=null;t.over=true;t.bank=0;cutRound(t,t.ps.filter(s=>!s.gone))}
+// жеребьёвка: у кого старше карта, тот ходит первым; при равных старших картах тянут ещё раз только они
+function cutRound(t,ps){if(ps.length<2){t.cut=null;if(ps[0])t.lastWin=ps[0].pid;return round(t)}
+ const d=deck(),cards=ps.map(s=>({pid:s.pid,name:s.name,c:d.pop()})),mx=Math.max(...cards.map(x=>x.c.r)),top=cards.filter(x=>x.c.r==mx);
+ t.cut={cards,top:top.map(x=>x.pid),note:top.length==1?'Старшая карта ходит первой':'Одинаковые старшие карты: '+top.map(x=>x.name).join(' и ')+' тянут ещё раз'};
+ if(top.length==1){t.lastWin=top[0].pid;t.msg=`${top[0].name} вытянул старшую карту и ходит первым`}else t.msg=`Ничья по старшей карте: ${top.map(x=>x.name).join(' и ')} тянут ещё раз`;
+ push(t);t.ct=setTimeout(()=>{if(top.length==1){t.cut=null;round(t)}else cutRound(t,top.map(x=>t.ps.find(s=>s.pid==x.pid)).filter(x=>x&&!x.gone))},top.length==1?4500:3500)}
 function darkAsk(t){clearTimeout(t.dt);const ps=t.ps;let k=t.turn;do{k=(k+1)%ps.length}while(!ps[k].in&&k!=t.turn);
  if(k==t.turn||!ps[k].in){t.dk=null;tick(t);return push(t)}
  t.dk={i:k};clearTimeout(t.tm);t.dl=0;t.msg=`${ps[k].name} решает: играть в тёмную?`;t.dt=setTimeout(()=>darkPick(t,ps[k],false),20000);push(t)}
