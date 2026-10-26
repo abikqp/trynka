@@ -10,7 +10,9 @@ const setBal=(pid,v)=>{const o=store[pid]=store[pid]||{};o.b=Math.max(0,Math.flo
 const stat=(pid,k,n=1)=>{const o=store[pid]=store[pid]||{},st=o.st=o.st||{};st[k]=(st[k]||0)+n;save()};
 const statMax=(pid,k,v)=>{const o=store[pid]=store[pid]||{},st=o.st=o.st||{};if(v>(st[k]||0)){st[k]=v;save()}};
 const bonusLeft=pid=>Math.max(0,((store[pid]&&store[pid].bn)||0)+86400000-Date.now());
-const meMsg=p=>({t:'me',bal:bal(p.pid),st:(store[p.pid]&&store[p.pid].st)||{},bonus:bonusLeft(p.pid),name:p.name,bk:mkBk(p.pid),ks:!!process.env.SECRET});
+const ICE=(()=>{const l=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}];
+ if(process.env.TURN_URL)l.push({urls:process.env.TURN_URL.split(','),username:process.env.TURN_USER||'',credential:process.env.TURN_PASS||''});return l})();
+const meMsg=p=>({t:'me',ice:ICE,bal:bal(p.pid),st:(store[p.pid]&&store[p.pid].st)||{},bonus:bonusLeft(p.pid),name:p.name,bk:mkBk(p.pid),ks:!!process.env.SECRET});
 // ---- подписанная копия баланса и статистики (восстановление после сброса сервера) ----
 const SECRET=process.env.SECRET||(console.log('ВНИМАНИЕ: переменная SECRET не задана, копии не переживут перезапуск'),crypto.randomBytes(32).toString('hex'));
 const sig=(pid,d)=>crypto.createHmac('sha256',SECRET).update(pid+'|'+d).digest('hex');
@@ -77,7 +79,7 @@ function view(t,pid){const n=t.ps.length,me=Math.max(0,seatOf(t,pid)),r=i=>(i-me
   ai:t.ai&&alive(t).length==2?{who:(t.ps.find(x=>x.pid==t.ai)||{}).name,you:pid!=t.ai&&!!t.ps[me]&&isAlive(t.ps[me])}:null,
   sp:t.sp?{from:(t.ps.find(x=>x.pid==t.sp.from)||{}).name,you:t.sp.to==pid}:null,ti:t.tie?{you:t.tie.pids.includes(pid),voted:!!t.tie.ch[pid]}:null,
   ps:ord.map(i=>{const s=t.ps[i],show=s.in&&(vis.includes(i)||t.over&&!s.fold);
-   return{n:s.name,av:s.av,chips:s.chips,put:s.put,cb:s.cb||0,in:s.in,fold:s.fold,blind:s.blind,dark:!!s.dark,hand:(i==me||show)?s.hand:(s.in?[0,0,0]:[])}})}}
+   return{n:s.name,av:s.av,chips:s.chips,put:s.put,cb:s.cb||0,in:s.in,fold:s.fold,blind:s.blind,dark:!!s.dark,sid:s.sid,vc:!!s.vc,hand:(i==me||show)?s.hand:(s.in?[0,0,0]:[])}})}}
 const push=t=>t.ps.forEach(s=>send(P.get(s.pid),view(t,s.pid)));
 const TURN=20000;
 const tick=t=>{clearTimeout(t.tm);t.dl=Date.now()+TURN;t.tm=setTimeout(()=>{const s=t.ps[t.turn];if(t.started&&!t.over&&!t.sv&&s)act(t,s,'fold')},TURN)};
@@ -159,7 +161,7 @@ function cutRound(t,ps){if(ps.length<2){t.cut=null;if(ps[0])t.lastWin=ps[0].pid;
  if(top.length==1){t.lastWin=top[0].pid;t.msg=`${top[0].name} вытянул старшую карту и ходит первым`}else t.msg=`Ничья по старшей карте: ${top.map(x=>x.name).join(' и ')} тянут ещё раз`;
  push(t);t.ct=setTimeout(()=>{if(top.length==1){t.cut=null;round(t)}else cutRound(t,top.map(x=>t.ps.find(s=>s.pid==x.pid)).filter(x=>x&&!x.gone))},top.length==1?4500:3500)}
 function darkAsk(t){clearTimeout(t.dt);const ps=t.ps;let k=t.turn;do{k=(k+1)%ps.length}while(!ps[k].in&&k!=t.turn);
- if(k==t.turn||!ps[k].in){t.dk=null;tick(t);return push(t)}
+ if(t.sva||k==t.turn||!ps[k].in){t.dk=null;tick(t);return push(t)}
  t.dk={i:k};clearTimeout(t.tm);t.dl=0;t.msg=`${ps[k].name} решает: играть в тёмную?`;t.dt=setTimeout(()=>darkPick(t,ps[k],false),20000);push(t)}
 function darkPick(t,s,yes){if(!t.dk||t.ps[t.dk.i]!==s)return;clearTimeout(t.dt);t.dk=null;
  if(yes){s.dark=true;const c=cost(t,s);pay(t,s,c);t.circ.add(t.ps.indexOf(s));s.skip=true;t.msg=`${s.name} играет в тёмную: +1 очко, ставка ${c}, пропускает ход`}else t.msg=`${s.name} не темнит`;tick(t);push(t)}
@@ -173,7 +175,7 @@ function tieResolve(t){const ti=t.tie;if(!ti)return;clearTimeout(t.tt);t.tie=nul
 function spr(t,ok){const sp=t.sp;if(!sp)return;clearTimeout(sp.tm);t.sp=null;
  if(ok)return finish(t,alive(t).map(i=>t.ps[i]),'split');
  const q=t.ps.find(x=>x.pid==sp.to);t.msg=`${q?q.name:'Соперник'} против дележа`;tick(t);push(t)}
-function sit(t,p){t.ps.push({pid:p.pid,name:p.name,chips:bal(p.pid),in:false,fold:false,blind:true,hand:[],put:0,av:avOf(p)||AV[t.ps.length%8]});p.tid=t.id}
+function sit(t,p){t.ps.push({sid:crypto.randomBytes(4).toString('hex'),vc:false,pid:p.pid,name:p.name,chips:bal(p.pid),in:false,fold:false,blind:true,hand:[],put:0,av:avOf(p)||AV[t.ps.length%8]});p.tid=t.id}
 function leave(t,p){if(t.sv)cancelSv(t,'Свара отменена');if(t.tie&&t.tie.pids.includes(p.pid))tieResolve(t);if(t.sp&&(t.sp.to==p.pid||t.sp.from==p.pid))spr(t,false);const i=seatOf(t,p.pid);p.tid=null;if(i<0)return;const s=t.ps[i],mid=t.started&&!t.over;if(s.c0!=null){stat(s.pid,'net',s.chips-s.c0);s.c0=null}setBal(s.pid,s.chips);if(t.pick&&t.ps[t.pick.i]===s)choose(t,s,'split');if(t.dk&&t.ps[t.dk.i]===s)darkPick(t,s,false);
  if(mid){s.gone=1;if(s.in&&!s.fold){if(t.ps[t.turn]===s)act(t,s,'fold');else{s.fold=true;const l=alive(t);if(l.length==1)finish(t,[t.ps[l[0]]],'');else push(t)}}}
  else t.ps.splice(i,1);
@@ -187,6 +189,9 @@ function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
   send(p,meMsg(p));const t=T.get(p.tid);if(t&&seatOf(t,pid)>=0)push(t);else{p.tid=null;send(p,{t:'lobby',tables:lobbyList()})}return}
  const p=c.p;if(!p)return;const t=T.get(p.tid);
  if(m.t=='av')return setAv(p,m.av);
+ if(m.t=='vc'){const s=t&&t.ps[seatOf(t,p.pid)];if(s){s.vc=!!m.on;push(t)}return}
+ if(m.t=='rtc'){const me=t&&t.ps[seatOf(t,p.pid)],to=t&&t.ps.find(x=>x.sid==m.to&&x.vc);
+  if(me&&me.vc&&to&&JSON.stringify(m.d||'').length<9000)send(P.get(to.pid),{t:'rtc',from:me.sid,d:m.d});return}
  if(m.t=='me')return send(p,meMsg(p));
  if(m.t=='name'){p.name=clean(m.name)||p.name;const s=t&&t.ps[seatOf(t,p.pid)];if(s){s.name=p.name;push(t)}return send(p,meMsg(p))}
  if(m.t=='bonus'){if(!p.tid&&bonusLeft(p.pid)==0){setBal(p.pid,bal(p.pid)+500);store[p.pid].bn=Date.now();save()}return send(p,meMsg(p))}
@@ -206,7 +211,7 @@ function handle(c,raw){let m;try{m=JSON.parse(raw)}catch(e){return}
  if(m.t=='next'){if(t.started&&t.over&&!t.end&&!t.cut&&Date.now()-t.overAt>2000)round(t);return}
  if(m.t=='dark'){const s=t.ps[seatOf(t,p.pid)];if(s)darkPick(t,s,!!m.ok);return}
  if(m.t=='look'){const s=t.ps[seatOf(t,p.pid)];if(s&&s.in&&!s.fold&&!t.over&&s.blind){s.blind=false;push(t)}return}
- if(m.t=='svara'){const s=t.ps[seatOf(t,p.pid)];if(!s||!t.started||t.over||t.sv||t.pick||t.dk||t.tie||t.sp||!isAlive(s)||alive(t).length!=2)return;
+ if(m.t=='svara'){const s=t.ps[seatOf(t,p.pid)];if(!s||!t.started||t.over||t.sv||t.pick||t.dk||t.tie||t.sp||!isAlive(s)||alive(t).length!=2||t.ps[t.turn]!==s)return;
   if(Date.now()<(t.svCool||0))return send(p,{t:'err',m:'Подождите немного перед новой сварой'});
   clearTimeout(t.tm);t.dl=0;t.sv={ph:'vote',from:p.pid,yes:new Set([p.pid]),tm:setTimeout(()=>t.sv&&t.sv.ph=='vote'&&cancelSv(t,'Свара не состоялась: нет ответа'),20000)};
   t.msg=`${s.name} предлагает свару`;push(t);return}

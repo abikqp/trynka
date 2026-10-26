@@ -146,6 +146,7 @@ body[data-deck=classic] .sc em{color:currentColor;opacity:.22}
 .cutb .sh{border-radius:18px;max-width:340px;text-align:center}.cuts{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:14px 0}
 .cuts>div{display:flex;flex-direction:column;align-items:center;gap:6px}.cuts .w .sc{outline:3px solid var(--ok)}.cuts small{opacity:.85}
 .msg{top:53%}
+.vcm{position:absolute;right:-6px;top:-4px;font-size:14px;background:#2f7d3a;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
@@ -175,8 +176,8 @@ const net=o=>{if(TR=='ws'){if(ws&&ws.readyState==1)ws.send(JSON.stringify(o))}el
 async function hflush(){if(HB)return;HB=1;while(HQ.length){const o=HQ.shift();try{await fetch('/api/send?cid='+CID,{method:'POST',body:JSON.stringify(o)})}catch(e){}}HB=0}
 async function hpoll(){for(;;){try{const r=await fetch('/api/poll?cid='+CID),a=await r.json();if(!ready){ready=1;ERR='';TRY=0;DIAG=''}a.forEach(onMsg)}catch(e){ready=0;DIAG='нет связи';render();await new Promise(r=>setTimeout(r,1500))}}}
 function onMsg(m){if(m.t=='hello?')return net(hello());if(m.t=='top'){TOPL=m.list||[];RANK=m.rank||0;if(V=='top')render();return}if(m.t=='me'){ME=m;ME.t0=Date.now();if(m.bk){ls('bk',JSON.stringify(m.bk));cset('bk',JSON.stringify(m.bk))}if(V!='table')render();return}if(m.t=='chat'){CHL.push(m);if($('chat').classList.contains('on'))chatDraw();else{CU++;render()}return}if(m.t=='chats'){CHL=m.list||[];return}
-  if(m.t=='lobby'){CHL=[];LB=m.tables;if(V=='table')V='lobby';S=null;SQP=0;render()}
-  else if(m.t=='table'){if(!S||S.rid!=m.rid)SQP=0;const o=S&&S.rid==m.rid?S.ps[0].op:[0,0,0];m.ps[0].op=o;TOFF=m.now-Date.now();if(m.over)ls('bal',m.ps[0].chips);S=m;V='table';ERR='';render()}
+  if(m.t=='rtc'){onRtc(m);return}if(m.t=='lobby'){vcStop();CHL=[];LB=m.tables;if(V=='table')V='lobby';S=null;SQP=0;render()}
+  else if(m.t=='table'){if(!S||S.rid!=m.rid)SQP=0;const o=S&&S.rid==m.rid?S.ps[0].op:[0,0,0];m.ps[0].op=o;TOFF=m.now-Date.now();if(m.over)ls('bal',m.ps[0].chips);S=m;V='table';ERR='';render();vcSync()}
   else if(m.t=='err'){ERR=m.m;render()}}
 function connect(){if(TR=='http'){hpoll();return}if(!location.host){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}try{ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/ws')}catch(e){ERR='Откройте игру по ссылке сервера, а не как файл';render();return}
  TRY++;{const w=ws;setTimeout(()=>{if(w.readyState==0){DIAG='нет ответа сервера';w.close()}},6000)}
@@ -225,7 +226,7 @@ function seat(i){const n=S.ps.length,p=S.ps[i],h=!i,t=S.turn==i&&!S.over&&p.in,s
  const bd=!p.in?(S.started?'ждёт':''):p.fold?'Фолд':p.dark?'в тёмную +1':p.blind?'не глядя':'';
  const cs=p.in&&(h||!p.fold||show)?p.hand.map((c,j)=>sc(c,h?!up(j):!show)).join(''):'';
  return`<div class="seat ${h?'me':''} ${t?'turn':''} ${!h&&(!p.in||p.fold&&!show)?'dim':''}" style="left:${x}%;top:${y}%;transform:translate(-50%,-50%) scale(${k})">
- <div class="av">${avh(p.av)}</div>
+ <div class="av">${avh(p.av)}${p.vc?'<span class="vcm">🎤</span>':''}</div>
  <div class="cs" ${h&&p.in&&!p.fold&&!S.over&&!all?'onclick="look()"':''}>${cs}</div>
  <div class="np"><b>${p.n}${h&&bd?' · '+bd:''}</b><span>${p.chips}</span>${bd&&!h?`<i class="st ${p.fold?'f':''}">${bd}</i>`:''}${t?`<u class="bar${h?'':' bot'}"></u>`:''}</div>${t&&S.dl?`<div class="tm">${tl()}</div>`:''}${bet(p)}
  ${h&&p.in&&!p.fold?`<div class="hn">${all?nm(p.hand)+(p.dark?' +1':''):S.over?'':(p.dark?'в тёмную (+1 очко), нажмите на карты':'нажмите на карты')}</div>`:''}</div>`}
@@ -241,8 +242,8 @@ function lobby(){return TOP+BK+`<div class="card2"><h3>Играть</h3>
  <h4>Создать стол</h4><input id="tn" placeholder="Название стола" maxlength="16"><input id="tp" placeholder="Пароль (необязательно)" maxlength="16">
  <select id="tm">${[2,3,4,5,6,7,8].map(k=>`<option ${k==4?'selected':''} value="${k}">${k} игрока(ов)</option>`).join('')}</select>
  <button class="p" onclick="mkTable()">Создать стол</button></div>`}
-function wait(){return TOP+chatb()+`<button class="leave" onclick="net({t:'leave'})">← Выйти</button><div class="card2"><h3>${S.name}</h3>
- <small>Игроков: ${S.ps.length} из ${S.max}</small>${ERR?`<div class="er">${ERR}</div>`:''}${S.ps.map(p=>`<div class="pl">${avh(p.av)} ${p.n}</div>`).join('')}
+function wait(){return TOP+chatb()+vcb()+`<button class="leave" onclick="net({t:'leave'})">← Выйти</button><div class="card2"><h3>${S.name}</h3>
+ <small>Игроков: ${S.ps.length} из ${S.max}</small>${ERR?`<div class="er">${ERR}</div>`:''}${S.ps.map(p=>`<div class="pl">${avh(p.av)} ${p.n}${p.vc?' 🎤':''}</div>`).join('')}
  ${S.host?`<button class="p" onclick="net({t:'start'})" ${S.ps.length>1?'':'disabled'}>Начать игру</button>`:'<small>Ждём, пока хозяин начнёт игру</small>'}</div>`}
 const AVL=['🙂','😎','🧔','🧑‍🚀','🦊','🐻','🎩','🤠','🐯','🦁','🐼','👑'];
 const avh=a=>/^(\/|https?:|data:)/.test(a||'')?`<img src="${a}">`:(a||'');
@@ -329,6 +330,33 @@ const cget=k=>new Promise(r=>{if(!CS)return r('');let d=0;const f=v=>{if(!d){d=1
 const cset=(k,v)=>{try{CS&&CS.setItem(k,v)}catch(e){}};
 async function init(){const cp=await cget('pid');if(cp&&cp.length>=8&&cp.length<=60){PID=cp;ls('pid',cp)}else cset('pid',PID);
  const cb=await cget('bk');if(cb&&!ls('bk'))ls('bk',cb)}
+let VC=null;
+const vcAlert=m=>{try{tg.showAlert(m)}catch(e){alert(m)}};
+async function vcStart(){if(VC)return vcStop();
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.RTCPeerConnection)return vcAlert('В этом приложении нет доступа к микрофону. Попробуйте открыть игру в обновлённом Telegram.');
+ try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  VC={stream:st,peers:{},muted:false};net({t:'vc',on:1});render()}
+ catch(e){vcAlert('Нет доступа к микрофону'+(e&&e.name?' ('+e.name+')':'')+'. Разрешите микрофон для Telegram в настройках телефона.')}}
+function vcStop(){if(!VC)return;Object.keys(VC.peers).forEach(vcClose);VC.stream.getTracks().forEach(t=>t.stop());VC=null;net({t:'vc',on:0});render()}
+function vcMute(){if(!VC)return;VC.muted=!VC.muted;VC.stream.getAudioTracks().forEach(t=>t.enabled=!VC.muted);render()}
+function vcClose(sid){const P=VC&&VC.peers[sid];if(!P)return;try{P.pc.close()}catch(e){}if(P.audio)P.audio.remove();delete VC.peers[sid]}
+function vcPeer(sid){if(VC.peers[sid])return VC.peers[sid];
+ const pc=new RTCPeerConnection({iceServers:ME.ice||[{urls:'stun:stun.l.google.com:19302'}]}),P={pc,audio:null,q:[]};VC.peers[sid]=P;
+ VC.stream.getTracks().forEach(t=>pc.addTrack(t,VC.stream));
+ pc.onicecandidate=e=>{if(e.candidate)net({t:'rtc',to:sid,d:{c:e.candidate}})};
+ pc.ontrack=e=>{if(!P.audio){P.audio=document.createElement('audio');P.audio.autoplay=true;P.audio.setAttribute('playsinline','');document.body.appendChild(P.audio)}
+  P.audio.srcObject=e.streams[0];const pl=P.audio.play&&P.audio.play();if(pl&&pl.catch)pl.catch(()=>{})};
+ pc.onconnectionstatechange=()=>{if(pc.connectionState=='failed')vcClose(sid)};
+ return P}
+async function vcOffer(sid){const P=vcPeer(sid);const o=await P.pc.createOffer();await P.pc.setLocalDescription(o);net({t:'rtc',to:sid,d:{s:P.pc.localDescription}})}
+async function onRtc(m){if(!VC)return;const P=vcPeer(m.from),d=m.d||{};
+ if(d.s){await P.pc.setRemoteDescription(d.s);if(d.s.type=='offer'){const a=await P.pc.createAnswer();await P.pc.setLocalDescription(a);net({t:'rtc',to:m.from,d:{s:P.pc.localDescription}})}
+  P.q.splice(0).forEach(c=>P.pc.addIceCandidate(c).catch(()=>{}))}
+ else if(d.c){if(P.pc.remoteDescription)P.pc.addIceCandidate(d.c).catch(()=>{});else P.q.push(d.c)}}
+function vcSync(){if(!VC||!S||!S.ps[0])return;const my=S.ps[0].sid;if(!S.ps[0].vc)net({t:'vc',on:1});
+ S.ps.forEach((p,i)=>{if(i&&p.vc&&p.sid&&!VC.peers[p.sid]&&my>p.sid)vcOffer(p.sid)});
+ Object.keys(VC.peers).forEach(sid=>{if(!S.ps.some(p=>p.sid==sid&&p.vc))vcClose(sid)})}
+const vcb=()=>`<button class="chatb vcb" onclick="vcStart()" style="right:100px;${VC?'background:#2f7d3a':''}">${VC?'🎙️':'🎤'}</button>${VC?`<button class="chatb vcb" onclick="vcMute()" style="right:152px">${VC.muted?'🔇':'🔊'}</button>`:''}`;
 const SKIP={k:0};
 function svbox(){const v=S.sv;if(!v){SKIP.k=0;return''}if(S.over||SKIP.k==S.rid)return'';
  const b=(t,l,c)=>`<button class="${c||''} w3" onclick="${t}">${l}</button>`;let h;
@@ -342,7 +370,7 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk&&!S.dk,al=a
  const kk=[0,1,2].find(k=>!up(k)),all=allUp();
  const panel=SQP&&SQ&&!S.over&&m.in&&!m.fold&&!all?`<div class="sq"><button class="hide" onclick="SQP=0;render()">Скрыть</button><button class="op" onclick="openAll()">Открыть</button>
  <div class="sw3"><div class="pc" data-k="${kk}">${card(m.hand[kk],{big:1})}<div class="cv"><div class="c big b kb"></div><div class="fl"></div></div></div></div></div>`:'';
- return TOP+chatb()+`<button class="leave" onclick="net({t:'leave'})">←</button><div class="tb">${S.ps.map((p,i)=>seat(i)).join('')}
+ return TOP+chatb()+vcb()+`<button class="leave" onclick="net({t:'leave'})">←</button><div class="tb">${S.ps.map((p,i)=>seat(i)).join('')}
  <div class="pot"><small>${S.name} · банк</small><b>${S.bank}</b><small>ставка ${S.bet}</small>${S.pile?`<div class="pile">${money(S.pile,1)}</div>`:''}</div>
  <div class="msg"><span>${S.over?'':S.old||''}</span><br>${S.msg}</div></div>
  ${S.over?`<div class="acts"><button class="p w6" onclick="net({t:'${S.end?'start':'next'}'})">${S.end?'Играть заново':'Следующая раздача'}</button></div>`:
@@ -352,7 +380,7 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk&&!S.dk,al=a
  <button class="w2" onclick="RZ=1;RV=0;render()" ${mine&&rzr()[1]>S.bet?'':'disabled'}><b>Повысить</b><small>от ${S.bet+10}</small></button>
  <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
  <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
- <button class="w2" onclick="net({t:'svara'})" ${!S.over&&m.in&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}${aibox()}${spbox()}${tibox()}${darkbox()}${cutbox()}`}
+ <button class="w2" onclick="net({t:'svara'})" ${mine&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}${aibox()}${spbox()}${tibox()}${darkbox()}${cutbox()}`}
 function render(){if(DRAG){PEND=1;return}PEND=0;
  if(V!='table'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=(SCR[V]||menu)();return}
  const oldb={};if(S.started)el.querySelectorAll('.bw .bet').forEach(e=>{const r=e.getBoundingClientRect();oldb[e.parentNode.dataset.i]={x:r.left,y:r.top,h:e.outerHTML}});
