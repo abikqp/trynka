@@ -147,6 +147,9 @@ body[data-deck=classic] .sc em{color:currentColor;opacity:.22}
 .cuts>div{display:flex;flex-direction:column;align-items:center;gap:6px}.cuts .w .sc{outline:3px solid var(--ok)}.cuts small{opacity:.85}
 .msg{top:53%}
 .vcm{position:absolute;right:-6px;top:-4px;font-size:14px;background:#2f7d3a;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
+.fc{position:fixed;z-index:60;width:16px;height:16px;border-radius:50%;pointer-events:none;opacity:0;margin:0;background:radial-gradient(var(--c) 45%,#fff 47% 55%,var(--c) 57%);border:1px dashed #fff}
+.fc.r{width:24px;height:13px;border-radius:2px;background:var(--c);border:1px solid #fff8}
+.fcard{position:fixed;z-index:60;pointer-events:none;margin:0;left:0;top:0}
 </style>
 </head>
 <body>
@@ -186,7 +189,7 @@ function connect(){if(TR=='http'){hpoll();return}if(!location.host){ERR='Отк�
  ws.onerror=()=>{DIAG='ошибка соединения'};ws.onclose=e=>{ready=0;DIAG=DIAG||('закрыто, код '+e.code);if(!OPENED&&TRY>=2&&TR=='ws'){TR='http';DIAG='';hpoll();render();return}render();setTimeout(connect,2000)}}
 const nameNow=()=>{NAME=(($('nm')&&$('nm').value)||NAME).replace(/[<>&"'`\\]/g,'').trim().slice(0,16)||'Игрок';ls('nm',NAME);return NAME};
 const join=(id,lock)=>net({t:'join',id,pass:lock?$('pw'+id).value:'',nm:nameNow()});
-const mkTable=()=>net({t:'create',name:$('tn').value,pass:$('tp').value,max:+$('tm').value,nm:nameNow()});
+const mkTable=()=>net({t:'create',name:$('tn').value,pass:$('tp').value,max:+$('tm').value,ante:+$('ta').value,nm:nameNow()});
 const CW=74,CH=106,OFF=80;
 function anim(ms,fn,done){const t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/ms);fn(k);k<1?requestAnimationFrame(f):done&&done()})()}
 function peel(e,P0,P1){const kb=e.firstChild,fl=e.lastChild,mx=(P0[0]+P1[0])/2,my=(P0[1]+P1[1])/2,nx=P0[0]-P1[0],ny=P0[1]-P1[1],n2=nx*nx+ny*ny;
@@ -227,7 +230,7 @@ function seat(i){const n=S.ps.length,p=S.ps[i],h=!i,t=S.turn==i&&!S.over&&p.in,s
  const cs=p.in&&(h||!p.fold||show)?p.hand.map((c,j)=>sc(c,h?!up(j):!show)).join(''):'';
  return`<div class="seat ${h?'me':''} ${t?'turn':''} ${!h&&(!p.in||p.fold&&!show)?'dim':''}" style="left:${x}%;top:${y}%;transform:translate(-50%,-50%) scale(${k})">
  <div class="av">${avh(p.av)}${p.vc?'<span class="vcm">🎤</span>':''}</div>
- <div class="cs" ${h&&p.in&&!p.fold&&!S.over&&!all?'onclick="look()"':''}>${cs}</div>
+ <div class="cs" ${Date.now()<DU?'style="visibility:hidden"':''} ${h&&p.in&&!p.fold&&!S.over&&!all?'onclick="look()"':''}>${cs}</div>
  <div class="np"><b>${p.n}${h&&bd?' · '+bd:''}</b><span>${p.chips}</span>${bd&&!h?`<i class="st ${p.fold?'f':''}">${bd}</i>`:''}${t?`<u class="bar${h?'':' bot'}"></u>`:''}</div>${t&&S.dl?`<div class="tm">${tl()}</div>`:''}${bet(p)}
  ${h&&p.in&&!p.fold?`<div class="hn">${all?nm(p.hand)+(p.dark?' +1':''):S.over?'':(p.dark?'в тёмную (+1 очко), нажмите на карты':'нажмите на карты')}</div>`:''}</div>`}
 const nm=h=>{const s=h.map(c=>c.r);if(s.every(x=>x==6))return'Три шестёрки · 36';if(s.every(x=>x==11))return'Три туза · 33';
@@ -237,10 +240,11 @@ const chatb=()=>`<button class="chatb" onclick="chatOpen(1)">💬${CU?`<i>${CU}<
 function lobby(){return TOP+BK+`<div class="card2"><h3>Играть</h3>
  <input id="nm" value="${NAME}" maxlength="16" placeholder="Ваше имя">
  ${ERR?`<div class="er">${ERR}</div>`:''}${ready?'':`<small>Подключаемся…${TRY>1?` (попытка ${TRY}${DIAG?', '+DIAG:''})`:''}</small>`}
- <h4>Столы</h4>${LB.length?LB.map(t=>`<div class="tbl"><div><b>${t.name}</b> ${t.lock?'🔒':''}<small>${t.n}/${t.max}${t.on?' · идёт игра':''}</small></div>
+ <h4>Столы</h4>${LB.length?LB.map(t=>`<div class="tbl"><div><b>${t.name}</b> ${t.lock?'🔒':''}<small>${t.n}/${t.max} · мин. ставка ${t.ante||10}${t.on?' · идёт игра':''}</small></div>
  ${t.lock?`<input id="pw${t.id}" placeholder="пароль">`:''}<button onclick="join('${t.id}',${t.lock})">Войти</button></div>`).join(''):'<small>Пока нет столов. Создайте первый.</small>'}
  <h4>Создать стол</h4><input id="tn" placeholder="Название стола" maxlength="16"><input id="tp" placeholder="Пароль (необязательно)" maxlength="16">
  <select id="tm">${[2,3,4,5,6,7,8].map(k=>`<option ${k==4?'selected':''} value="${k}">${k} игрока(ов)</option>`).join('')}</select>
+ <select id="ta">${[1,5,10,20,50,100,200,500].map(k=>`<option value="${k}" ${k==10?'selected':''}>Мин. ставка ${k}</option>`).join('')}</select>
  <button class="p" onclick="mkTable()">Создать стол</button></div>`}
 function wait(){return TOP+chatb()+vcb()+`<button class="leave" onclick="net({t:'leave'})">← Выйти</button><div class="card2"><h3>${S.name}</h3>
  <small>Игроков: ${S.ps.length} из ${S.max}</small>${ERR?`<div class="er">${ERR}</div>`:''}${S.ps.map(p=>`<div class="pl">${avh(p.av)} ${p.n}${p.vc?' 🎤':''}</div>`).join('')}
@@ -264,7 +268,7 @@ const money=(v,nn)=>{if(!v)return'';let r=v,a=[];for(const d of DEN){while(r>=d&
  return`<div class="bet ${PM=='rub'?'rub':''}"><span class="stk">${a.map(d=>`<i class="d${d}"></i>`).join('')}</span>${nn?'':v}</div>`};
 const tl=()=>Math.max(0,Math.ceil((S.dl-(Date.now()+TOFF))/1000));
 setInterval(()=>{if(S&&S.dl&&!S.over)document.querySelectorAll('.tm').forEach(e=>e.textContent=tl())},500);
-const rzr=()=>{const m=S.ps[0];return[S.bet+10,m.blind?m.chips*2:m.chips]};
+const rzr=()=>{const m=S.ps[0];return[S.bet+(S.ante||10),m.blind?m.chips*2:m.chips]};
 function setRV(v){const[a,b]=rzr();RV=Math.max(Math.min(a,b),Math.min(b,Math.floor(v)));render()}
 function rzbox(){if(!RZ||!S||S.over||S.turn!=0)return'';const m=S.ps[0],[a,b]=rzr();if(b<=S.bet){RZ=0;return''}
  const v=Math.min(b,Math.max(Math.min(a,b),RV||a));
@@ -288,11 +292,11 @@ function spbox(){const v=S.sp;if(!v||S.over)return'';
  return sheet(v.you?`<b>${v.from} предлагает делить банк</b><small>Банк делится поровну, раздача заканчивается.</small><div class="acts"><button class="w3" onclick="net({t:'spr',ok:0})">Против</button><button class="w3 p" onclick="net({t:'spr',ok:1})">Согласен</button></div>`:`<b>Предложено делить банк</b><small>Ждём ответа.</small>`)}
 function tibox(){const v=S.ti;if(!v||S.over)return'';
  return sheet(v.you&&!v.voted?`<b>Ничья по очкам!</b><small>Выберите: делить банк или свара. Свара начнётся, если хотя бы один выберет её.</small><div class="acts"><button class="w3" onclick="net({t:'tie',c:'split'})">Делить банк</button><button class="w3 p" onclick="net({t:'tie',c:'svara'})">Свара</button></div>`:`<b>Ничья по очкам</b><small>Игроки выбирают: делить банк или свара.</small>`)}
-function darkbox(){const v=S.dk;if(!v||S.over)return'';
+function darkbox(){const v=S.dk;if(!v||S.over||Date.now()<DU)return'';
  return`<div class="svb"><div class="sh">`+(v.you?`<b>Играть в тёмную?</b><small>Если «Да»: к вашим очкам добавится 1, вы сразу делаете ставку и пропускаете один ход. Карты можно смотреть в любой момент, +1 остаётся.</small><div class="acts"><button class="w3" onclick="net({t:'dark',ok:0})">Нет</button><button class="p w3" onclick="net({t:'dark',ok:1})">Да</button></div>`:`<b>${v.who} решает: играть в тёмную?</b>`)+`</div></div>`}
 function cutbox(){const c=S.cut;if(!c)return'';return`<div class="cutb"><div class="sh"><b>Кто ходит первым?</b><div class="cuts">${c.map(x=>`<div class="${x.w?'w':''}">${sc(x.c,false)}<small>${x.n}</small></div>`).join('')}</div><small>${S.cutn||'Старшая карта ходит первой'}</small></div></div>`}
 let PSW=0;
-function pkbox(){const v=S.pk;if(!v||S.over)return'';
+function pkbox(){const v=S.pk;if(!v||S.over||Date.now()<DU)return'';
  return`<div class="svb"><div class="sh">`+(v.you?`<b>У вас ${v.kind}!</b><small>Карты открыты всем. Что делаете? Делить: банк в конце раздачи поделите с победителем. Варить: свара начнётся, когда определится победитель.</small><div class="acts"><button class="w3" onclick="net({t:'pick',c:'split'})">Делить банк</button><button class="p w3" onclick="net({t:'pick',c:'cook'})">Варить</button></div>`
   :`<b>${v.who}: ${v.kind}</b><small>Игрок открыл карты и решает: делить банк или варить.</small>`)+`</div></div>`}
 const ACH=[['🎴','Первая раздача','Сыграйте раздачу',s=>s.g||0,1],['🥇','Первая победа','Выиграйте раздачу',s=>s.w||0,1],['🏅','Победитель','Выиграйте 10 раздач',s=>s.w||0,10],['🎖️','Ветеран','Сыграйте 100 раздач',s=>s.g||0,100],
@@ -357,6 +361,35 @@ function vcSync(){if(!VC||!S||!S.ps[0])return;const my=S.ps[0].sid;if(!S.ps[0].v
  S.ps.forEach((p,i)=>{if(i&&p.vc&&p.sid&&!VC.peers[p.sid]&&my>p.sid)vcOffer(p.sid)});
  Object.keys(VC.peers).forEach(sid=>{if(!S.ps.some(p=>p.sid==sid&&p.vc))vcClose(sid)})}
 const vcb=()=>`<button class="chatb vcb" onclick="vcStart()" style="right:100px;${VC?'background:#2f7d3a':''}">${VC?'🎙️':'🎤'}</button>${VC?`<button class="chatb vcb" onclick="vcMute()" style="right:152px">${VC.muted?'🔇':'🔊'}</button>`:''}`;
+let DU=0,PV=null;
+const rc=e=>{if(!e)return null;const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}};
+function chipsFor(v){const a=[];let r=Math.max(0,Math.floor(v));for(const d of DEN){while(r>=d&&a.length<6){a.push(d);r-=d}}return a.length?a:[1]}
+function flyChip(p0,p1,d,delay,dur){if(!p0||!p1)return;const f=document.createElement('i');f.className='fc d'+d+(PM=='rub'?' r':'');f.style.left=p0.x-8+'px';f.style.top=p0.y-8+'px';document.body.appendChild(f);
+ setTimeout(()=>{f.style.transition=`transform ${dur}ms cubic-bezier(.25,.75,.3,1),opacity ${dur}ms`;f.style.opacity='1';f.style.transform=`translate(${p1.x-p0.x+(Math.random()*14-7)}px,${p1.y-p0.y+(Math.random()*10-5)}px) rotate(${(Math.random()*540)|0}deg)`},delay+20);
+ setTimeout(()=>{f.style.opacity='0'},delay+dur-80);setTimeout(()=>f.remove(),delay+dur+60)}
+function flyAmount(p0,p1,v,delay,dur){chipsFor(v).forEach((d,k)=>flyChip(p0,p1,d,delay+k*45,dur))}
+function countTo(el,a,b,ms){if(!el||a===b)return;const t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/ms);el.textContent=Math.round(a+(b-a)*k);if(k<1)requestAnimationFrame(f)})()}
+function snapAll(){const o={bets:{},pot:rc(document.querySelector('.pot'))};document.querySelectorAll('.bw .bet').forEach(e=>{o.bets[e.parentNode.dataset.i]=rc(e)});return o}
+function animate(P,snap,newDeal){if(!P||P.id!==S.id){return}
+ const seats=[...document.querySelectorAll('.seat')],pot=rc(document.querySelector('.pot')),potB=document.querySelector('.pot b');
+ const np=i=>rc(seats[i]&&seats[i].querySelector('.np')),same=S.rid===P.rid;
+ if(newDeal){
+  const order=S.ps.map((p,i)=>i).filter(i=>S.ps[i].in),st=Math.max(0,order.indexOf(S.turn)),seq=[...order.slice(st),...order.slice(0,st)],step=seq.length>5?55:85,dur=480;let k=0;
+  for(let r=0;r<3;r++)seq.forEach(i=>{const cs=seats[i].querySelector('.cs'),t=rc(cs),d=k++*step;if(!t||!pot)return;
+   const e=document.createElement('div');e.className='sc bk fcard';e.style.left=pot.x-23+'px';e.style.top=pot.y-32+'px';document.body.appendChild(e);
+   setTimeout(()=>{e.style.transition=`transform ${dur}ms cubic-bezier(.2,.8,.25,1)`;e.style.transform=`translate(${t.x-pot.x+(r-1)*12}px,${t.y-pot.y}px) rotate(${(r-1)*9+(Math.random()*14-7)}deg)`},d+30);setTimeout(()=>e.remove(),d+dur+80)});
+  seq.forEach((i,n)=>flyAmount(np(i),pot,S.ante||10,n*40,520));
+  const tot=k*step+dur+100;DU=Date.now()+tot;setTimeout(()=>{DU=0;render()},tot+20);
+  countTo(potB,P.bank||0,S.bank,600);return}
+ if(!same)return;
+ if(S.over&&!P.over){   // выигрыш уходит победителю
+  const win=S.ps.map((p,i)=>[i,p.chips-(P.ps[i]?P.ps[i].chips:p.chips)]).filter(x=>x[1]>0);
+  win.forEach(([i,g],n)=>{const to=np(i);flyAmount(pot,to,g,n*60,750);Object.values(snap.bets).forEach((b,m)=>flyAmount(b,to,S.ante||10,m*50,800))});
+  countTo(potB,P.bank||0,0,700);return}
+ if((S.sw||0)>(P.sw||0)){   // ставки круга уходят в банк
+  Object.entries(snap.bets).forEach(([i,b],n)=>{const amt=(P.ps[i]&&P.ps[i].cb)||S.ante||10;flyAmount(b,pot,amt,n*70,650)})}
+ S.ps.forEach((p,i)=>{const was=(P.ps[i]&&P.ps[i].cb)||0;if(p.cb>was){const to=rc(document.querySelector(`.bw[data-i="${i}"] .bet`));flyAmount(np(i),to,p.cb-was,0,480)}});
+ if(S.bank!==P.bank)countTo(potB,P.bank||0,S.bank,550)}
 const SKIP={k:0};
 function svbox(){const v=S.sv;if(!v){SKIP.k=0;return''}if(S.over||SKIP.k==S.rid)return'';
  const b=(t,l,c)=>`<button class="${c||''} w3" onclick="${t}">${l}</button>`;let h;
@@ -377,18 +410,17 @@ function game(){const m=S.ps[0],mine=!S.over&&S.turn==0&&m.in&&!S.pk&&!S.dk,al=a
  `<div class="acts">
  <button class="w2" onclick="go('fold')" ${mine?'':'disabled'}><b>Пас</b></button>
  <button class="p w2" onclick="go('call')" ${mine?'':'disabled'}><b>Поставить</b><small>${cost(m)}</small></button>
- <button class="w2" onclick="RZ=1;RV=0;render()" ${mine&&rzr()[1]>S.bet?'':'disabled'}><b>Повысить</b><small>от ${S.bet+10}</small></button>
+ <button class="w2" onclick="RZ=1;RV=0;render()" ${mine&&rzr()[1]>S.bet?'':'disabled'}><b>Повысить</b><small>от ${S.bet+(S.ante||10)}</small></button>
  <button class="w2" onclick="look()" ${!S.over&&m.in&&!all?'':'disabled'}><b>Смотреть</b></button>
  <button class="w2" onclick="go('show')" ${mine&&al>=2&&!pq.blind?'':'disabled'}><b>Вскрыть</b><small>${pq.n} · ${cost(m)}</small></button>
  <button class="w2" onclick="net({t:'svara'})" ${mine&&!m.fold&&al==2&&!S.sv?'':'disabled'}><b>Свара</b></button></div>`}${panel}${svbox()}${rzbox()}${pkbox()}${aibox()}${spbox()}${tibox()}${darkbox()}${cutbox()}`}
 function render(){if(DRAG){PEND=1;return}PEND=0;
  if(V!='table'||!S){if(el.querySelector('input:focus'))return;el.innerHTML=(SCR[V]||menu)();return}
- const oldb={};if(S.started)el.querySelectorAll('.bw .bet').forEach(e=>{const r=e.getBoundingClientRect();oldb[e.parentNode.dataset.i]={x:r.left,y:r.top,h:e.outerHTML}});
+ const snap=snapAll(),newDeal=!!(PV&&PV.id===S.id&&S.rid!==PV.rid&&S.started&&!S.cut&&S.ps.some(p=>p.in&&p.hand.length));
+ if(newDeal)DU=Date.now()+4000;
  el.innerHTML=!S.started?wait():game();bindAll();
- if(S.started&&(S.sw||0)>PSW){const pr=document.querySelector('.pot'),pb=pr&&pr.getBoundingClientRect();
-  if(pb)Object.values(oldb).forEach(o=>{const f=document.createElement('div');f.className='fly';f.innerHTML=o.h;f.style.left=o.x+'px';f.style.top=o.y+'px';document.body.appendChild(f);
-   requestAnimationFrame(()=>requestAnimationFrame(()=>{f.style.transform=`translate(${pb.left+pb.width/2-o.x-30}px,${pb.top+pb.height/2-o.y}px) scale(.7)`;f.style.opacity='.35'}));setTimeout(()=>f.remove(),950)})}
- PSW=S.sw||0}
+ if(S.started)try{animate(PV,snap,newDeal)}catch(e){}
+ PV=S}
 ['felt','deck','back'].forEach(k=>document.body.dataset[k]=ls('p_'+k)||'');render();init().then(connect);setInterval(()=>net({t:'ping'}),20000);
 </script>
 </body>
